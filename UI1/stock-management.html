@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DPMS — Stock Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #2563EB; --primary-dark: #1D4ED8; --accent: #F59E0B;
+    --bg: #F8FAFC; --sidebar-bg: #0F172A; --sidebar-w: 230px;
+    --surface: #FFFFFF; --border: #E2E8F0; --text: #0F172A;
+    --muted: #64748B; --success: #10B981; --warning: #F59E0B;
+    --danger: #EF4444; --info: #6366F1;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ───────────────────────────────────────────── */
+  .sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--sidebar-bg); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 24px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); text-decoration: none; }
+  .logo-icon { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(37,99,235,0.4); }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-name { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #fff; letter-spacing: 1px; }
+  .nav-section { padding: 20px 12px 8px; }
+  .nav-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 1.2px; padding: 0 8px; margin-bottom: 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; color: rgba(255,255,255,0.55); text-decoration: none; transition: all 0.15s; cursor: pointer; margin-bottom: 2px; }
+  .nav-item svg { width: 17px; height: 17px; min-width: 17px; }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+  .nav-item.active { background: rgba(37,99,235,0.25); color: #fff; font-weight: 500; }
+  .nav-item.active svg { color: #60A5FA; }
+
+  /* ── Main layout ───────────────────────────────────────── */
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar { height: 64px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 50; }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-right { display: flex; align-items: center; gap: 6px; }
+  .icon-btn { width: 36px; height: 36px; border-radius: 8px; border: none; background: transparent; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+  .icon-btn:hover { background: var(--bg); color: var(--text); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .notif-dot { position: relative; }
+  .notif-dot::after { content: ''; position: absolute; top: 6px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); border: 2px solid var(--surface); }
+  .avatar-btn { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 10px; border: none; background: var(--bg); cursor: pointer; transition: background 0.15s; }
+  .avatar-btn:hover { background: var(--border); }
+  .avatar { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), #7C3AED); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; color: #fff; }
+  .avatar-name { font-size: 13px; font-weight: 500; }
+  .chevron svg { width: 14px; height: 14px; color: var(--muted); }
+  .content { padding: 28px; flex: 1; }
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; }
+  .page-breadcrumb { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .page-breadcrumb a { color: var(--primary); text-decoration: none; }
+  .page-breadcrumb span { margin: 0 6px; }
+
+  /* ── Toolbar ────────────────────────────────────────────── */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+  .toolbar-left { display: flex; align-items: center; gap: 10px; }
+  .toolbar-right { display: flex; align-items: center; gap: 10px; }
+  .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; background: var(--primary); color: #fff; font-size: 13.5px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; text-decoration: none; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary svg { width: 15px; height: 15px; }
+  .btn-secondary { padding: 9px 18px; border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13.5px; font-weight: 500; border: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-warning { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; background: rgba(245,158,11,0.1); color: #B45309; font-size: 13px; font-weight: 500; border: 1px solid rgba(245,158,11,0.25); cursor: pointer; transition: all 0.15s; }
+  .btn-warning:hover { background: rgba(245,158,11,0.18); }
+  .btn-warning svg { width: 14px; height: 14px; }
+  .btn-info { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; background: rgba(99,102,241,0.1); color: var(--info); font-size: 13px; font-weight: 500; border: 1px solid rgba(99,102,241,0.2); cursor: pointer; transition: all 0.15s; }
+  .btn-info:hover { background: rgba(99,102,241,0.18); }
+  .btn-info svg { width: 14px; height: 14px; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+  .search-box svg { width: 16px; height: 16px; color: var(--muted); }
+  .search-box input { border: none; outline: none; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: var(--text); background: transparent; width: 200px; }
+  .search-box input::placeholder { color: var(--muted); }
+  .filter-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--surface); outline: none; cursor: pointer; }
+
+  /* ── Summary cards ─────────────────────────────────────── */
+  .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .summary-card { background: var(--surface); border-radius: 12px; padding: 18px 20px; box-shadow: var(--card-shadow); display: flex; align-items: center; gap: 14px; }
+  .summary-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .summary-icon svg { width: 22px; height: 22px; }
+  .summary-icon.blue { background: rgba(37,99,235,0.1); color: var(--primary); }
+  .summary-icon.green { background: rgba(16,185,129,0.1); color: var(--success); }
+  .summary-icon.amber { background: rgba(245,158,11,0.1); color: var(--warning); }
+  .summary-icon.red { background: rgba(239,68,68,0.1); color: var(--danger); }
+  .summary-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
+  .summary-lbl { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  /* ── Card & Table ───────────────────────────────────────── */
+  .card { background: var(--surface); border-radius: 14px; box-shadow: var(--card-shadow); overflow: hidden; }
+  .card-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
+  .result-count { font-size: 13px; color: var(--muted); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 16px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; text-align: left; background: #F8FAFC; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #F8FAFC; }
+  tbody td { padding: 12px 16px; font-size: 13.5px; vertical-align: middle; }
+  .thumb-placeholder { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg, #E2E8F0, #CBD5E1); display: flex; align-items: center; justify-content: center; }
+  .thumb-placeholder svg { width: 20px; height: 20px; color: var(--muted); }
+  .product-name-cell .name { font-weight: 500; font-size: 14px; margin-bottom: 2px; }
+  .product-name-cell .sku { font-size: 11.5px; color: var(--muted); }
+  .price-cell { font-family: 'Syne', sans-serif; font-weight: 600; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.3px; }
+  .badge-green { background: rgba(16,185,129,0.1); color: #059669; }
+  .badge-red { background: rgba(239,68,68,0.1); color: var(--danger); }
+  .badge-yellow { background: rgba(245,158,11,0.1); color: #B45309; }
+  .badge-blue { background: rgba(37,99,235,0.1); color: var(--primary); }
+  .badge-purple { background: rgba(99,102,241,0.1); color: var(--info); }
+
+  /* Stock cell with mini bar */
+  .stock-cell { display: flex; flex-direction: column; gap: 4px; min-width: 100px; }
+  .stock-count { font-weight: 500; font-size: 13.5px; }
+  .stock-count.low { color: var(--danger); }
+  .stock-count.ok { color: var(--success); }
+  .stock-count.warn { color: var(--warning); }
+  .stock-bar { height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  .stock-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .stock-bar-fill.low { background: var(--danger); }
+  .stock-bar-fill.ok { background: var(--success); }
+  .stock-bar-fill.warn { background: var(--warning); }
+
+  /* Action buttons */
+  .action-btns { display: flex; gap: 6px; }
+  .action-btn { width: 32px; height: 32px; border-radius: 7px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: opacity 0.15s; }
+  .action-btn:hover { opacity: 0.75; }
+  .action-btn svg { width: 15px; height: 15px; }
+  .btn-adjust { background: rgba(245,158,11,0.12); color: #B45309; }
+  .btn-reserve { background: rgba(99,102,241,0.12); color: var(--info); }
+  .btn-view { background: rgba(37,99,235,0.1); color: var(--primary); }
+
+  /* Pagination */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-top: 1px solid var(--border); }
+  .pagination-info { font-size: 13px; color: var(--muted); }
+  .pagination-btns { display: flex; gap: 4px; }
+  .page-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .page-btn:hover { background: var(--bg); }
+  .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+  .page-btn svg { width: 14px; height: 14px; }
+
+  /* ── Modal base ─────────────────────────────────────────── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 200; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 18px; width: 500px; max-width: 95vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.22); animation: modalIn 0.2s ease; }
+  @keyframes modalIn { from { opacity:0; transform: translateY(12px) scale(0.98); } to { opacity:1; transform: none; } }
+  .modal-header { padding: 22px 26px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .modal-header-left { display: flex; align-items: center; gap: 12px; }
+  .modal-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .modal-icon svg { width: 19px; height: 19px; }
+  .modal-icon.amber { background: rgba(245,158,11,0.12); color: #B45309; }
+  .modal-icon.purple { background: rgba(99,102,241,0.12); color: var(--info); }
+  .modal-title-wrap .modal-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+  .modal-title-wrap .modal-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .modal-close { background: none; border: none; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; transition: background 0.15s; }
+  .modal-close:hover { background: var(--bg); color: var(--text); }
+  .modal-close svg { width: 18px; height: 18px; }
+  .modal-body { padding: 22px 26px; }
+  .modal-footer { padding: 16px 26px 22px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border); }
+
+  /* Product info strip inside modal */
+  .product-strip { display: flex; align-items: center; gap: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 20px; }
+  .product-strip .ps-img { width: 42px; height: 42px; border-radius: 8px; background: linear-gradient(135deg, #E2E8F0, #CBD5E1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .product-strip .ps-img svg { width: 20px; height: 20px; color: var(--muted); }
+  .product-strip .ps-name { font-weight: 600; font-size: 13.5px; }
+  .product-strip .ps-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .product-strip .ps-stock { margin-left: auto; text-align: right; }
+  .product-strip .ps-stock-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; }
+  .product-strip .ps-stock-val.low { color: var(--danger); }
+  .product-strip .ps-stock-val.ok { color: var(--success); }
+  .product-strip .ps-stock-lbl { font-size: 11px; color: var(--muted); }
+
+  /* Form elements */
+  .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .form-group:last-of-type { margin-bottom: 0; }
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-label { font-size: 12.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-label .required { color: var(--danger); margin-left: 2px; }
+  .form-input, .form-select, .form-textarea { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px; font-family: 'DM Sans', sans-serif; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; width: 100%; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-hint { font-size: 12px; color: var(--muted); }
+
+  /* Type selector tabs */
+  .type-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .type-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg); cursor: pointer; transition: all 0.15s; }
+  .type-tab.active.add { border-color: var(--success); background: rgba(16,185,129,0.07); }
+  .type-tab.active.sub { border-color: var(--danger); background: rgba(239,68,68,0.07); }
+  .type-tab.active.set { border-color: var(--primary); background: rgba(37,99,235,0.07); }
+  .type-tab svg { width: 18px; height: 18px; }
+  .type-tab.active.add svg { color: var(--success); }
+  .type-tab.active.sub svg { color: var(--danger); }
+  .type-tab.active.set svg { color: var(--primary); }
+  .type-tab .tt-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .type-tab.active.add .tt-label { color: #059669; }
+  .type-tab.active.sub .tt-label { color: var(--danger); }
+  .type-tab.active.set .tt-label { color: var(--primary); }
+
+  /* Quantity input with +/- controls */
+  .qty-input-wrap { display: flex; align-items: center; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; transition: box-shadow 0.15s, border-color 0.15s; }
+  .qty-input-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .qty-btn { width: 40px; height: 40px; border: none; background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--muted); transition: background 0.1s, color 0.1s; flex-shrink: 0; }
+  .qty-btn:hover { background: var(--border); color: var(--text); }
+  .qty-input-wrap input { flex: 1; border: none; outline: none; font-size: 16px; font-family: 'Syne', sans-serif; font-weight: 700; text-align: center; color: var(--text); background: var(--surface); padding: 0; }
+
+  /* Preview chip */
+  .preview-chip { display: flex; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 14px; }
+  .preview-chip .pc-label { font-size: 12px; color: var(--muted); }
+  .preview-chip .pc-val { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+  .preview-chip .pc-val.inc { color: var(--success); }
+  .preview-chip .pc-val.dec { color: var(--danger); }
+  .preview-chip .pc-val.neu { color: var(--primary); }
+
+  /* Reservation expire picker */
+  .expire-options { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .expire-opt { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--bg); font-size: 12.5px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .expire-opt:hover { border-color: var(--primary); color: var(--primary); }
+  .expire-opt.active { border-color: var(--primary); background: rgba(37,99,235,0.08); color: var(--primary); }
+
+  /* Alert / info box */
+  .alert-info { display: flex; gap: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+  .alert-info svg { width: 16px; height: 16px; color: var(--info); flex-shrink: 0; margin-top: 1px; }
+  .alert-info p { font-size: 12.5px; color: #4338CA; line-height: 1.5; }
+  .alert-warn { display: flex; gap: 10px; background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; }
+  .alert-warn svg { width: 16px; height: 16px; color: var(--warning); flex-shrink: 0; margin-top: 1px; }
+  .alert-warn p { font-size: 12.5px; color: #92400E; line-height: 1.5; }
+
+  /* Toast */
+  .toast-container { position: fixed; top: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--sidebar-bg); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13.5px; display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); animation: toastIn 0.25s ease; min-width: 260px; }
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  .toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .toast.success svg { color: var(--success); }
+  .toast.error svg { color: var(--danger); }
+  @keyframes toastIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: none; } }
+  @keyframes toastOut { from { opacity:1; } to { opacity:0; transform: translateX(20px); } }
+
+  /* Loading spinner */
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn-loading { opacity: 0.8; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ───────────────────────────── -->
+<aside class="sidebar">
+  <a class="sidebar-logo" href="#">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    </div>
+    <span class="logo-name">DPMS</span>
+  </a>
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Catalog</div>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+      Categories
+    </a>
+    <a class="nav-item" href="products.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Products
+    </a>
+    <a class="nav-item active" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      Stock Management
+    </a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Orders</div>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Orders
+    </a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Admin</div>
+    <a class="nav-item" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Users
+    </a>
+  </div>
+</aside>
+
+<!-- ── Main ────────────────────────────────── -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn notif-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button>
+      <button class="avatar-btn">
+        <div class="avatar">AU</div>
+        <span class="avatar-name">Admin User</span>
+        <span class="chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Stock Management</h1>
+        <p class="page-breadcrumb">
+          <a href="#">Catalog</a><span>/</span>Stock Management
+        </p>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-icon blue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div>
+          <div class="summary-val">128</div>
+          <div class="summary-lbl">Total products</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon green">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div>
+          <div class="summary-val">4,820</div>
+          <div class="summary-lbl">Units in stock</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div class="summary-val">12</div>
+          <div class="summary-lbl">Low stock (&lt; 10)</div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-icon red">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+          <div class="summary-val">3</div>
+          <div class="summary-lbl">Out of stock</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Product stock overview</span>
+        <span class="result-count">128 products</span>
+      </div>
+
+      <div style="padding: 14px 22px; border-bottom: 1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search product or SKU…" id="searchInput" oninput="filterTable()">
+        </div>
+        <select class="filter-select" id="stockFilter" onchange="filterTable()">
+          <option value="all">All stock status</option>
+          <option value="ok">In stock</option>
+          <option value="warn">Low stock</option>
+          <option value="low">Out of stock</option>
+        </select>
+        <select class="filter-select">
+          <option>All categories</option>
+          <option>Electronics</option>
+          <option>Accessories</option>
+          <option>Home Appliances</option>
+          <option>Lifestyle</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table id="stockTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Stock qty</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="stockTableBody">
+            <!-- rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="pagination-info">Showing 1 to 7 of 128 entries</span>
+        <div class="pagination-btns">
+          <button class="page-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">…</button>
+          <button class="page-btn">32</button>
+          <button class="page-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL 1 — ADJUST STOCK
+     POST /api/products/{id}/adjust-stock
+     Body: { quantity: int, type: string }
+     type: "add" | "subtract" | "set"
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="adjustModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-icon amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div class="modal-title-wrap">
+          <div class="modal-title">Adjust stock</div>
+          <div class="modal-subtitle" id="adjustSubtitle">Add, subtract, or set stock quantity</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('adjustModal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Product info strip -->
+      <div class="product-strip" id="adjustProductStrip">
+        <div class="ps-img">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg>
+        </div>
+        <div>
+          <div class="ps-name" id="adjustProductName">—</div>
+          <div class="ps-meta" id="adjustProductSku">SKU: —</div>
+        </div>
+        <div class="ps-stock">
+          <div class="ps-stock-val ok" id="adjustCurrentStock">—</div>
+          <div class="ps-stock-lbl">Current stock</div>
+        </div>
+      </div>
+
+      <!-- Type selector: Add / Subtract / Set -->
+      <div class="form-group">
+        <label class="form-label">Adjustment type <span class="required">*</span></label>
+        <div class="type-tabs">
+          <button class="type-tab active add" data-type="add" onclick="selectAdjustType('add')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="tt-label">Add</span>
+          </button>
+          <button class="type-tab sub" data-type="subtract" onclick="selectAdjustType('subtract')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="tt-label">Subtract</span>
+          </button>
+          <button class="type-tab set" data-type="set" onclick="selectAdjustType('set')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span class="tt-label">Set exact</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quantity input -->
+      <div class="form-group">
+        <label class="form-label">Quantity <span class="required">*</span></label>
+        <div class="qty-input-wrap">
+          <button class="qty-btn" type="button" onclick="changeQty(-1, 'adjustQty')">−</button>
+          <input type="number" id="adjustQty" value="1" min="1" max="99999" oninput="updateAdjustPreview()">
+          <button class="qty-btn" type="button" onclick="changeQty(1, 'adjustQty')">+</button>
+        </div>
+      </div>
+
+      <!-- Reason / Note -->
+      <div class="form-group">
+        <label class="form-label">Reason / note</label>
+        <select class="form-select" id="adjustReason">
+          <option value="">Select reason (optional)</option>
+          <option value="purchase">Restock from purchase</option>
+          <option value="return">Customer return</option>
+          <option value="damage">Damaged / expired</option>
+          <option value="theft">Shrinkage / theft</option>
+          <option value="correction">Inventory correction</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <!-- Preview result -->
+      <div class="preview-chip" id="adjustPreview">
+        <span class="pc-label">New stock after adjustment</span>
+        <span class="pc-val inc" id="adjustPreviewVal">—</span>
+      </div>
+
+      <!-- API reference note -->
+      <p style="font-size:11.5px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Calls <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px;">POST /api/products/{id}/adjust-stock</code>
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('adjustModal')">Cancel</button>
+      <button class="btn-primary" id="adjustSubmitBtn" onclick="submitAdjustStock()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm adjustment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL 2 — RESERVE STOCK
+     POST /api/products/{id}/reserve-stock
+     Body: { orderId: uuid, quantity: int, expiresAt: datetime }
+     ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="reserveModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <div class="modal-icon purple">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="modal-title-wrap">
+          <div class="modal-title">Reserve stock</div>
+          <div class="modal-subtitle" id="reserveSubtitle">Temporarily hold units for an order</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('reserveModal')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Info banner -->
+      <div class="alert-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <p>Reserved stock is held for a specific order and released automatically when the reservation expires. The Catalog service owns the quantity — Order service owns the reservation record.</p>
+      </div>
+
+      <!-- Product info strip -->
+      <div class="product-strip" id="reserveProductStrip">
+        <div class="ps-img">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg>
+        </div>
+        <div>
+          <div class="ps-name" id="reserveProductName">—</div>
+          <div class="ps-meta" id="reserveProductSku">SKU: —</div>
+        </div>
+        <div class="ps-stock">
+          <div class="ps-stock-val ok" id="reserveCurrentStock">—</div>
+          <div class="ps-stock-lbl">Available</div>
+        </div>
+      </div>
+
+      <!-- Order ID -->
+      <div class="form-group">
+        <label class="form-label">Order ID <span class="required">*</span></label>
+        <input type="text" class="form-input" id="reserveOrderId"
+               placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+               oninput="validateUUID(this)">
+        <span class="form-hint" id="reserveOrderIdHint">UUID format — generated by Order Service</span>
+      </div>
+
+      <!-- Quantity -->
+      <div class="form-group">
+        <label class="form-label">Quantity to reserve <span class="required">*</span></label>
+        <div class="qty-input-wrap">
+          <button class="qty-btn" type="button" onclick="changeQty(-1, 'reserveQty')">−</button>
+          <input type="number" id="reserveQty" value="1" min="1" oninput="updateReservePreview()">
+          <button class="qty-btn" type="button" onclick="changeQty(1, 'reserveQty')">+</button>
+        </div>
+      </div>
+
+      <!-- Expiry -->
+      <div class="form-group">
+        <label class="form-label">Expires at <span class="required">*</span></label>
+        <div class="expire-options" id="expireOptions">
+          <button class="expire-opt active" onclick="setExpiry(15, this)">15 min</button>
+          <button class="expire-opt" onclick="setExpiry(30, this)">30 min</button>
+          <button class="expire-opt" onclick="setExpiry(60, this)">1 hour</button>
+          <button class="expire-opt" onclick="setExpiry(1440, this)">24 hours</button>
+          <button class="expire-opt" onclick="setExpiry(0, this)">Custom</button>
+        </div>
+        <input type="datetime-local" class="form-input" id="reserveExpiresAt" style="display:none">
+        <span class="form-hint" id="expiryHint">Reservation auto-releases after 15 min</span>
+      </div>
+
+      <!-- Warning if low stock -->
+      <div class="alert-warn" id="reserveLowWarn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <p id="reserveLowWarnText">Quantity requested exceeds available stock.</p>
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-chip" id="reservePreview">
+        <span class="pc-label">Remaining available after reservation</span>
+        <span class="pc-val neu" id="reservePreviewVal">—</span>
+      </div>
+
+      <p style="font-size:11.5px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Calls <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:11px;">POST /api/products/{id}/reserve-stock</code>
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('reserveModal')">Cancel</button>
+      <button class="btn-primary" id="reserveSubmitBtn" onclick="submitReserveStock()" style="background:var(--info);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Reserve stock
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/* ─────────────────────────────────────────────
+   SAMPLE DATA  (replace with real API fetch)
+   GET /api/products?isActive=true
+   ───────────────────────────────────────────── */
+const products = [
+  { id: '550e8400-e29b-41d4-a716-446655440001', name: 'MacBook Pro 14"',   sku: 'ELEC-MB-001', category: 'Electronics',   price: 59900, stock: 42, status: 'Active' },
+  { id: '550e8400-e29b-41d4-a716-446655440002', name: 'iPhone 15 Pro',     sku: 'ELEC-IP-002', category: 'Electronics',   price: 44900, stock: 3,  status: 'Active' },
+  { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Sony WH-1000XM5',   sku: 'ELEC-HP-003', category: 'Electronics',   price: 12900, stock: 0,  status: 'Active' },
+  { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Gaming Mouse Pro',  sku: 'ACC-GM-004',  category: 'Accessories',   price: 890,   stock: 8,  status: 'Active' },
+  { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Mechanical Keyboard',sku:'ACC-MK-005',  category: 'Accessories',   price: 2990,  stock: 55, status: 'Inactive'},
+  { id: '550e8400-e29b-41d4-a716-446655440006', name: 'Dyson V15 Detect',  sku: 'HOME-DV-006', category: 'Home Appliances',price:22900,  stock: 18, status: 'Active' },
+  { id: '550e8400-e29b-41d4-a716-446655440007', name: 'Yoga Mat Premium',  sku: 'LIFE-YM-007', category: 'Lifestyle',     price: 1290,  stock: 120,status: 'Active' },
+];
+
+// currently selected product for modals
+let currentProduct = null;
+let currentAdjustType = 'add';
+let currentExpiryMinutes = 15;
+
+/* ─────────────────────────────────────────────
+   RENDER TABLE
+   ───────────────────────────────────────────── */
+function stockClass(qty) {
+  if (qty === 0) return 'low';
+  if (qty < 10) return 'warn';
+  return 'ok';
+}
+function stockBarWidth(qty, max = 150) {
+  return Math.min(100, Math.round((qty / max) * 100));
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('stockTableBody');
+  tbody.innerHTML = data.map((p, i) => {
+    const sc = stockClass(p.stock);
+    const pct = stockBarWidth(p.stock);
+    const statusBadge = p.status === 'Active'
+      ? '<span class="badge badge-green">Active</span>'
+      : '<span class="badge badge-red">Inactive</span>';
+    return `
+    <tr data-stock="${sc}" data-name="${p.name.toLowerCase()}" data-sku="${p.sku.toLowerCase()}">
+      <td style="color:var(--muted);font-size:13px">${i+1}</td>
+      <td>
+        <div class="thumb-placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/></svg>
+        </div>
+      </td>
+      <td>
+        <div class="product-name-cell">
+          <div class="name">${p.name}</div>
+          <div class="sku">${p.sku}</div>
+        </div>
+      </td>
+      <td>${p.category}</td>
+      <td class="price-cell">฿${p.price.toLocaleString('th-TH', {minimumFractionDigits:2})}</td>
+      <td>
+        <div class="stock-cell">
+          <span class="stock-count ${sc}">${p.stock} units</span>
+          <div class="stock-bar"><div class="stock-bar-fill ${sc}" style="width:${pct}%"></div></div>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+      <td>
+        <div class="action-btns">
+          <button class="action-btn btn-adjust" title="Adjust stock"
+                  onclick="openAdjustModal('${p.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </button>
+          <button class="action-btn btn-reserve" title="Reserve stock"
+                  onclick="openReserveModal('${p.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </button>
+          <button class="action-btn btn-view" title="View product">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const sf = document.getElementById('stockFilter').value;
+  const rows = document.querySelectorAll('#stockTableBody tr');
+  rows.forEach(row => {
+    const name = row.dataset.name || '';
+    const sku  = row.dataset.sku  || '';
+    const sc   = row.dataset.stock || '';
+    const matchQ = !q || name.includes(q) || sku.includes(q);
+    const matchS = sf === 'all' || sc === sf;
+    row.style.display = matchQ && matchS ? '' : 'none';
+  });
+}
+
+renderTable(products);
+
+/* ─────────────────────────────────────────────
+   MODAL HELPERS
+   ───────────────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+/* ─────────────────────────────────────────────
+   ADJUST STOCK MODAL
+   ───────────────────────────────────────────── */
+function openAdjustModal(productId) {
+  currentProduct = products.find(p => p.id === productId);
+  if (!currentProduct) return;
+
+  document.getElementById('adjustProductName').textContent = currentProduct.name;
+  document.getElementById('adjustProductSku').textContent  = `SKU: ${currentProduct.sku}`;
+  const stockEl = document.getElementById('adjustCurrentStock');
+  stockEl.textContent = `${currentProduct.stock} units`;
+  stockEl.className = `ps-stock-val ${stockClass(currentProduct.stock)}`;
+
+  // reset form
+  selectAdjustType('add');
+  document.getElementById('adjustQty').value = 1;
+  document.getElementById('adjustReason').value = '';
+  updateAdjustPreview();
+
+  openModal('adjustModal');
+}
+
+function selectAdjustType(type) {
+  currentAdjustType = type;
+  document.querySelectorAll('.type-tab').forEach(t => {
+    t.classList.remove('active', 'add', 'sub', 'set');
+  });
+  const tab = document.querySelector(`.type-tab[data-type="${type}"]`);
+  if (tab) tab.classList.add('active', type === 'subtract' ? 'sub' : type === 'set' ? 'set' : 'add');
+  updateAdjustPreview();
+}
+
+function updateAdjustPreview() {
+  if (!currentProduct) return;
+  const qty = parseInt(document.getElementById('adjustQty').value) || 0;
+  const prev = document.getElementById('adjustPreviewVal');
+  let newStock;
+  if (currentAdjustType === 'add')      { newStock = currentProduct.stock + qty; prev.className = 'pc-val inc'; }
+  else if (currentAdjustType === 'subtract') { newStock = Math.max(0, currentProduct.stock - qty); prev.className = 'pc-val dec'; }
+  else                                  { newStock = qty; prev.className = 'pc-val neu'; }
+  prev.textContent = `${newStock} units`;
+}
+
+/* ─────────────────────────────────────────────
+   RESERVE STOCK MODAL
+   ───────────────────────────────────────────── */
+function openReserveModal(productId) {
+  currentProduct = products.find(p => p.id === productId);
+  if (!currentProduct) return;
+
+  document.getElementById('reserveProductName').textContent = currentProduct.name;
+  document.getElementById('reserveProductSku').textContent  = `SKU: ${currentProduct.sku}`;
+  const stockEl = document.getElementById('reserveCurrentStock');
+  stockEl.textContent = `${currentProduct.stock} units`;
+  stockEl.className = `ps-stock-val ${stockClass(currentProduct.stock)}`;
+
+  // reset form
+  document.getElementById('reserveOrderId').value = '';
+  document.getElementById('reserveOrderIdHint').textContent = 'UUID format — generated by Order Service';
+  document.getElementById('reserveOrderIdHint').style.color = 'var(--muted)';
+  document.getElementById('reserveQty').value = 1;
+  document.getElementById('reserveLowWarn').style.display = 'none';
+  document.getElementById('reserveExpiresAt').style.display = 'none';
+
+  // reset expiry options
+  document.querySelectorAll('.expire-opt').forEach((b,i) => b.classList.toggle('active', i === 0));
+  currentExpiryMinutes = 15;
+  document.getElementById('expiryHint').textContent = 'Reservation auto-releases after 15 min';
+
+  setExpiryInput();
+  updateReservePreview();
+
+  openModal('reserveModal');
+}
+
+function setExpiry(minutes, el) {
+  document.querySelectorAll('.expire-opt').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const dtInput = document.getElementById('reserveExpiresAt');
+  if (minutes === 0) {
+    dtInput.style.display = 'block';
+    document.getElementById('expiryHint').textContent = 'Pick a custom expiry date/time';
+    currentExpiryMinutes = 0;
+  } else {
+    currentExpiryMinutes = minutes;
+    dtInput.style.display = 'none';
+    const labels = {15:'15 min', 30:'30 min', 60:'1 hour', 1440:'24 hours'};
+    document.getElementById('expiryHint').textContent = `Reservation auto-releases after ${labels[minutes]}`;
+    setExpiryInput();
+  }
+}
+
+function setExpiryInput() {
+  if (currentExpiryMinutes <= 0) return;
+  const d = new Date(Date.now() + currentExpiryMinutes * 60000);
+  document.getElementById('reserveExpiresAt').value =
+    d.toISOString().slice(0, 16);
+}
+
+function updateReservePreview() {
+  if (!currentProduct) return;
+  const qty = parseInt(document.getElementById('reserveQty').value) || 0;
+  const remaining = currentProduct.stock - qty;
+  const prev = document.getElementById('reservePreviewVal');
+  const warn = document.getElementById('reserveLowWarn');
+  const warnTxt = document.getElementById('reserveLowWarnText');
+
+  prev.textContent = `${Math.max(0, remaining)} units`;
+  prev.className = remaining < 0 ? 'pc-val dec' : remaining < 10 ? 'pc-val dec' : 'pc-val neu';
+
+  if (remaining < 0) {
+    warn.style.display = 'flex';
+    warnTxt.textContent = `Requested qty (${qty}) exceeds available stock (${currentProduct.stock}). Reduce quantity.`;
+  } else if (remaining < 10 && remaining >= 0) {
+    warn.style.display = 'flex';
+    warnTxt.textContent = `After this reservation only ${remaining} unit${remaining!==1?'s':''} will remain — low stock.`;
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+function validateUUID(input) {
+  const hint = document.getElementById('reserveOrderIdHint');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!input.value) {
+    hint.textContent = 'UUID format — generated by Order Service';
+    hint.style.color = 'var(--muted)';
+    input.style.borderColor = '';
+  } else if (uuid.test(input.value)) {
+    hint.textContent = '✓ Valid UUID';
+    hint.style.color = 'var(--success)';
+    input.style.borderColor = 'var(--success)';
+  } else {
+    hint.textContent = '✗ Invalid UUID format';
+    hint.style.color = 'var(--danger)';
+    input.style.borderColor = 'var(--danger)';
+  }
+}
+
+/* ─────────────────────────────────────────────
+   QTY STEPPER
+   ───────────────────────────────────────────── */
+function changeQty(delta, inputId) {
+  const el = document.getElementById(inputId);
+  const newVal = Math.max(1, (parseInt(el.value) || 1) + delta);
+  el.value = newVal;
+  if (inputId === 'adjustQty') updateAdjustPreview();
+  else updateReservePreview();
+}
+
+/* ─────────────────────────────────────────────
+   API SUBMIT — ADJUST STOCK
+   POST /api/products/{id}/adjust-stock
+   Body: { quantity: number, type: string }
+   ───────────────────────────────────────────── */
+async function submitAdjustStock() {
+  if (!currentProduct) return;
+
+  const qty  = parseInt(document.getElementById('adjustQty').value) || 0;
+  if (qty <= 0) { showToast('Enter a valid quantity', 'error'); return; }
+
+  // Build request payload (matches AdjustStockRequest schema)
+  const body = {
+    quantity: qty,
+    type: currentAdjustType          // "add" | "subtract" | "set"
+  };
+
+  const btn = document.getElementById('adjustSubmitBtn');
+  btn.innerHTML = '<div class="spinner"></div> Processing…';
+  btn.classList.add('btn-loading');
+
+  try {
+    // Real call:
+    // const res = await fetch(`/api/products/${currentProduct.id}/adjust-stock`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    //   body: JSON.stringify(body)
+    // });
+    // if (!res.ok) throw new Error(await res.text());
+
+    // Simulate network delay
+    await new Promise(r => setTimeout(r, 900));
+
+    // Update local state for demo
+    if (currentAdjustType === 'add')           currentProduct.stock += qty;
+    else if (currentAdjustType === 'subtract') currentProduct.stock = Math.max(0, currentProduct.stock - qty);
+    else                                       currentProduct.stock = qty;
+
+    renderTable(products);
+    closeModal('adjustModal');
+    showToast(`Stock updated — ${currentProduct.name} now has ${currentProduct.stock} units`, 'success');
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+  } finally {
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Confirm adjustment`;
+    btn.classList.remove('btn-loading');
+  }
+}
+
+/* ─────────────────────────────────────────────
+   API SUBMIT — RESERVE STOCK
+   POST /api/products/{id}/reserve-stock
+   Body: { orderId: uuid, quantity: int, expiresAt: datetime }
+   ───────────────────────────────────────────── */
+async function submitReserveStock() {
+  if (!currentProduct) return;
+
+  const orderId = document.getElementById('reserveOrderId').value.trim();
+  const qty     = parseInt(document.getElementById('reserveQty').value) || 0;
+  const uuidRe  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!uuidRe.test(orderId)) { showToast('Enter a valid Order UUID', 'error'); return; }
+  if (qty <= 0)               { showToast('Enter a valid quantity', 'error'); return; }
+  if (qty > currentProduct.stock) { showToast('Requested quantity exceeds available stock', 'error'); return; }
+
+  let expiresAt;
+  if (currentExpiryMinutes > 0) {
+    expiresAt = new Date(Date.now() + currentExpiryMinutes * 60000).toISOString();
+  } else {
+    const dtVal = document.getElementById('reserveExpiresAt').value;
+    if (!dtVal) { showToast('Select an expiry date/time', 'error'); return; }
+    expiresAt = new Date(dtVal).toISOString();
+  }
+
+  // Build request payload (matches ReserveStockRequest schema)
+  const body = {
+    orderId,                          // uuid
+    quantity: qty,                    // int
+    expiresAt                         // ISO 8601 datetime
+  };
+
+  const btn = document.getElementById('reserveSubmitBtn');
+  btn.innerHTML = '<div class="spinner"></div> Reserving…';
+  btn.classList.add('btn-loading');
+
+  try {
+    // Real call:
+    // const res = await fetch(`/api/products/${currentProduct.id}/reserve-stock`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    //   body: JSON.stringify(body)
+    // });
+    // if (!res.ok) throw new Error(await res.text());
+
+    await new Promise(r => setTimeout(r, 900));
+
+    // Update local display for demo (visually show reduced stock)
+    currentProduct.stock -= qty;
+    renderTable(products);
+    closeModal('reserveModal');
+    showToast(`Reserved ${qty} unit${qty!==1?'s':''} of ${currentProduct.name} for order ${orderId.slice(0,8)}…`, 'success');
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+  } finally {
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Reserve stock`;
+    btn.classList.remove('btn-loading');
+  }
+}
+
+/* ─────────────────────────────────────────────
+   TOAST NOTIFICATIONS
+   ───────────────────────────────────────────── */
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icon = type === 'success'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  toast.innerHTML = `${icon}<span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+/* close modal on overlay click */
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+/* close on Escape */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open')
+      .forEach(m => closeModal(m.id));
+  }
+});
+</script>
+</body>
+</html>

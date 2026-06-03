@@ -1,0 +1,249 @@
+คู่มือ Setup DB สำหรับ Order Service
+เป้าหมาย
+
+ให้ Order Service เชื่อม SQL Server Local SQLEXPRESS ได้ผ่าน:
+
+DB_HOST=localhost
+DB_PORT=1433
+DB_DATABASE=OrderServiceDb
+
+และให้ TypeORM Code First สร้าง table อัตโนมัติ
+
+orders
+order_items
+order_status_history
+1. เปิด SQL Server Configuration Manager
+
+กด Win + R แล้วลองเปิดตาม version SQL Server
+
+SQL Server 2022:
+
+SQLServerManager16.msc
+
+SQL Server 2019:
+
+SQLServerManager15.msc
+
+SQL Server 2017:
+
+SQLServerManager14.msc
+
+ถ้าไม่รู้ version ให้ลองจาก 16 แล้วไล่ลงมา 15, 14
+
+2. เปิด TCP/IP ให้ SQLEXPRESS
+
+ไปที่:
+
+SQL Server Network Configuration
+  > Protocols for SQLEXPRESS
+
+คลิกขวา:
+
+TCP/IP
+
+เลือก:
+
+Enable
+3. ตั้ง Port เป็น 1433
+
+ดับเบิลคลิก TCP/IP
+
+ไปที่แท็บ:
+
+IP Addresses
+
+เลื่อนลงล่างสุดที่:
+
+IPAll
+
+ตั้งค่า:
+
+TCP Dynamic Ports = ว่าง
+TCP Port = 1433
+
+กด:
+
+Apply
+OK
+4. Restart SQL Server Service
+
+ใน SQL Server Configuration Manager ไปที่:
+
+SQL Server Services
+
+คลิกขวา:
+
+SQL Server (SQLEXPRESS)
+
+เลือก:
+
+Restart
+5. ทดสอบ Port
+
+เปิด PowerShell:
+
+Test-NetConnection localhost -Port 1433
+
+ถ้าสำเร็จต้องเห็น:
+
+TcpTestSucceeded : True
+6. เปิด SSMS และ Trust Server Certificate
+
+เปิด SQL Server Management Studio
+
+ใช้:
+
+Server name: DESKTOP-A7FFSQJ\SQLEXPRESS
+Authentication: Windows Authentication
+
+กด:
+
+Options >>
+
+ไปที่ Connection Properties แล้วติ๊ก:
+
+Trust server certificate
+
+จากนั้น Connect
+
+7. เปิด SQL Server Authentication Mode
+
+หลังเข้า SSMS ได้แล้ว:
+
+คลิกขวาที่ Server
+> Properties
+> Security
+
+เลือก:
+
+SQL Server and Windows Authentication mode
+
+กด OK แล้ว Restart:
+
+SQL Server (SQLEXPRESS)
+8. แนะนำสร้าง Login ใหม่สำหรับ Order Service
+
+แทนการใช้ sa แนะนำสร้าง user เฉพาะ service จะง่ายและชัดเจนกว่า
+
+Login ด้วย Windows Authentication แล้วรัน:
+
+USE master;
+GO
+
+CREATE LOGIN order_service_user
+WITH PASSWORD = 'OrderService@12345',
+CHECK_POLICY = OFF;
+GO
+
+ALTER SERVER ROLE sysadmin ADD MEMBER order_service_user;
+GO
+
+ถ้าเคยสร้างแล้ว ให้ใช้:
+
+USE master;
+GO
+
+ALTER LOGIN order_service_user
+WITH PASSWORD = 'OrderService@12345',
+CHECK_POLICY = OFF;
+GO
+
+ALTER LOGIN order_service_user ENABLE;
+GO
+
+ALTER SERVER ROLE sysadmin ADD MEMBER order_service_user;
+GO
+9. สร้าง Database
+IF DB_ID('OrderServiceDb') IS NULL
+BEGIN
+    CREATE DATABASE OrderServiceDb;
+END
+GO
+10. ตั้งค่า .env ของ Order Service
+
+ไฟล์:
+
+D:\4.Mini_Project\distributed-product-system\apps\order-service\.env
+
+ใช้แบบนี้:
+
+PORT=3003
+
+DB_HOST=localhost
+DB_PORT=1433
+DB_USERNAME=order_service_user
+DB_PASSWORD=OrderService@12345
+DB_DATABASE=OrderServiceDb
+DB_TRUST_SERVER_CERTIFICATE=true
+
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
+RABBITMQ_EXCHANGE=order.events
+
+JWT_ISSUER=DistributedProductMS
+JWT_AUDIENCE=DistributedProductMSClient
+JWT_SECRET=THIS_IS_MY_SUPER_SECRET_KEY_SirichaiP
+JWT_EXPIRES_IN=60m
+11. ตั้งค่า TypeORM ใน app.module.ts
+TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    type: 'mssql',
+    host: config.get<string>('DB_HOST'),
+    port: Number(config.get<string>('DB_PORT')),
+    username: config.get<string>('DB_USERNAME'),
+    password: config.get<string>('DB_PASSWORD'),
+    database: config.get<string>('DB_DATABASE'),
+
+    entities: [
+      Order,
+      OrderItem,
+      OrderStatusHistory,
+    ],
+
+    synchronize: true,
+    logging: true,
+
+    options: {
+      encrypt: false,
+      trustServerCertificate:
+        config.get<string>('DB_TRUST_SERVER_CERTIFICATE') === 'true',
+    },
+  }),
+})
+
+ตอน Dev ใช้ได้:
+
+synchronize: true
+
+แต่ตอน Production ควรเปลี่ยนเป็น:
+
+synchronize: false
+
+แล้วใช้ Migration แทน
+
+12. Run Order Service
+cd D:\4.Mini_Project\distributed-product-system\apps\order-service
+npm run start:dev
+
+ถ้าสำเร็จจะเห็น:
+
+query: CREATE TABLE "order_items"
+query: CREATE TABLE "order_status_history"
+query: CREATE TABLE "orders"
+Nest application successfully started
+13. ตรวจสอบ Table
+
+ใน SSMS:
+
+USE OrderServiceDb;
+
+SELECT TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE';
+
+ควรเห็น:
+
+orders
+order_items
+order_status_history
