@@ -1,5 +1,5 @@
 // src/types/stock.type.ts
-
+export type StockStatus = "ok" | "warn" | "low";
 export interface StockProduct {
   id: string;
   name: string;

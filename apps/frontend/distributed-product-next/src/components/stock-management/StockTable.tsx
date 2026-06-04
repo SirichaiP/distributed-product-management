@@ -111,7 +111,7 @@ export default function StockTable({
                       title="Adjust stock"
                       onClick={() => onAdjust(product)}
                     >
-                      ⚙️
+                     🔝
                     </button>
 
                     <button
@@ -120,7 +120,7 @@ export default function StockTable({
                       title="Reserve stock"
                       onClick={() => onReserve(product)}
                     >
-                      🛡️
+                      🔛
                     </button>
 
                     <button

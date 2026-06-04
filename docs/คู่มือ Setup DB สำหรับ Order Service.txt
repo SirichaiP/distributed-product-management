@@ -20,16 +20,6 @@ SQL Server 2022:
 
 SQLServerManager16.msc
 
-SQL Server 2019:
-
-SQLServerManager15.msc
-
-SQL Server 2017:
-
-SQLServerManager14.msc
-
-ถ้าไม่รู้ version ให้ลองจาก 16 แล้วไล่ลงมา 15, 14
-
 2. เปิด TCP/IP ให้ SQLEXPRESS
 
 ไปที่:
@@ -162,8 +152,7 @@ GO
 10. ตั้งค่า .env ของ Order Service
 
 ไฟล์:
-
-D:\4.Mini_Project\distributed-product-system\apps\order-service\.env
+distributed-product-system\apps\order-service\.env
 
 ใช้แบบนี้:
 
@@ -223,7 +212,7 @@ synchronize: false
 แล้วใช้ Migration แทน
 
 12. Run Order Service
-cd D:\4.Mini_Project\distributed-product-system\apps\order-service
+distributed-product-system\apps\order-service
 npm run start:dev
 
 ถ้าสำเร็จจะเห็น:

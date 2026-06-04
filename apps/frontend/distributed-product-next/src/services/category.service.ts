@@ -1,23 +1,20 @@
 import { apiClient } from "@/lib/api-client";
-
-export interface CategoryResponse {
-  id: string;
-  name: string;
-  slug?: string | null;
-  description?: string | null;
-  isActive?: boolean;
-}
+import {
+  Category,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
+} from "@/types/category.type";
 
 type CategoryApiResponse =
-  | CategoryResponse[]
+  | Category[]
   | {
-      items: CategoryResponse[];
+      items: Category[];
     }
   | {
-      data: CategoryResponse[];
+      data: Category[];
     };
 
-function normalizeCategories(response: CategoryApiResponse): CategoryResponse[] {
+function normalizeCategories(response: CategoryApiResponse): Category[] {
   if (Array.isArray(response)) {
     return response;
   }
@@ -56,7 +53,7 @@ export const categoryService = {
   async getCategories(params?: {
     search?: string;
     isActive?: boolean;
-  }): Promise<CategoryResponse[]> {
+  }): Promise<Category[]> {
     const endpoint = buildCategoryEndpoint(params);
 
     const response = await apiClient<CategoryApiResponse>(endpoint, {
@@ -69,7 +66,46 @@ export const categoryService = {
   async getAll(params?: {
     search?: string;
     isActive?: boolean;
-  }): Promise<CategoryResponse[]> {
+  }): Promise<Category[]> {
     return this.getCategories(params);
+  },
+
+  async getById(id: string): Promise<Category> {
+    return apiClient<Category>(`/categories/${id}`, {
+      method: "GET",
+    });
+  },
+
+  async create(payload: CreateCategoryRequest): Promise<Category> {
+    return apiClient<Category>("/categories", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async update(
+    id: string,
+    payload: UpdateCategoryRequest
+  ): Promise<Category> {
+    return apiClient<Category>(`/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async remove(id: string): Promise<void> {
+    const categoryId = String(id ?? "").trim();
+
+    if (!categoryId) {
+      throw new Error("Category id is required");
+    }
+
+    return apiClient<void>(`/categories/${categoryId}`, {
+      method: "DELETE",
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    return this.remove(id);
   },
 };

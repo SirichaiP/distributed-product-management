@@ -13,17 +13,16 @@
 - Backend API ของโปรเจกต์
 - Frontend ของโปรเจกต์
 
-ตรวจสอบ Docker ด้วยคำสั่ง:
+ตรวจสอบ Docker ด้วยคำสั่ง: powershell
 
-```powershell
+` 
 docker --version
-```
+`
 
 ตัวอย่างผลลัพธ์:
-
-```text
+` 
 Docker version 29.5.2, build 79eb04c
-```
+` 
 
 ถ้าเห็น version แปลว่า Docker พร้อมใช้งาน
 
@@ -33,9 +32,11 @@ Docker version 29.5.2, build 79eb04c
 
 แนะนำให้ใช้คำสั่งแบบบรรทัดเดียวใน PowerShell:
 
-```powershell
+`
+
 docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest rabbitmq:3-management
-```
+`
+
 
 คำสั่งนี้จะ:
 
@@ -50,9 +51,9 @@ docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e
 ## 3. ความหมายของ Port
 
 | Port | ใช้ทำอะไร |
-|---|---|
+|---|----|
 | `5672` | สำหรับ Application / Backend เชื่อมต่อ RabbitMQ |
-| `15672` | สำหรับเปิดหน้า RabbitMQ Management UI ผ่าน Browser |
+| `15672`| สำหรับเปิดหน้า RabbitMQ Management UI ผ่าน Browser |
 
 สำคัญ: Backend ต้องใช้ port `5672` ไม่ใช่ `15672`
 
@@ -62,24 +63,24 @@ docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e
 
 ใช้คำสั่ง:
 
-```powershell
+`
 docker ps
-```
+`
 
 ถ้า RabbitMQ เปิดสำเร็จ จะเห็นประมาณนี้:
 
-```text
+`
 CONTAINER ID   IMAGE                   STATUS          PORTS                                                                                          NAMES
 95ace8063b59   rabbitmq:3-management   Up About a minute   0.0.0.0:5672->5672/tcp, 0.0.0.0:15672->15672/tcp   rabbitmq-distributed-product
-```
+`
 
 จุดที่ต้องดู:
 
-```text
+`
 STATUS = Up
 PORTS  = 5672 และ 15672
 NAMES  = rabbitmq-distributed-product
-```
+`
 
 ถ้าเห็นแบบนี้ แปลว่า RabbitMQ พร้อมใช้งานแล้ว
 
@@ -89,16 +90,16 @@ NAMES  = rabbitmq-distributed-product
 
 เปิด Browser แล้วเข้า:
 
-```text
+`
 http://localhost:15672
-```
+`
 
 Login ด้วย:
 
-```text
+`
 Username: guest
 Password: guest
-```
+`
 
 ถ้าเข้าได้ แปลว่า RabbitMQ container ทำงานปกติ
 
@@ -108,21 +109,21 @@ Password: guest
 
 ถ้ารันคำสั่ง `docker run` ซ้ำ แล้วเจอ error แบบนี้:
 
-```text
+`
 Conflict. The container name "/rabbitmq-distributed-product" is already in use
-```
+`
 
 แปลว่า container ถูกสร้างไว้แล้ว ไม่ต้องสร้างใหม่ ให้ start แทน:
 
-```powershell
+`
 docker start rabbitmq-distributed-product
-```
+`
 
 จากนั้นตรวจสอบ:
 
-```powershell
+`
 docker ps
-```
+`
 
 ---
 
@@ -130,21 +131,21 @@ docker ps
 
 ให้ดู container ทั้งหมดด้วย:
 
-```powershell
+`
 docker ps -a
-```
+`
 
 ถ้าเห็น container ชื่อ `rabbitmq-distributed-product` แต่สถานะเป็น `Exited` ให้เปิดด้วย:
 
-```powershell
+`
 docker start rabbitmq-distributed-product
-```
+`
 
 แล้วเช็กอีกครั้ง:
 
-```powershell
+`
 docker ps
-```
+`
 
 ---
 
@@ -152,53 +153,53 @@ docker ps
 
 ### ดู container ที่กำลังรัน
 
-```powershell
+`
 docker ps
-```
+`
 
 ### ดู container ทั้งหมด ทั้งที่รันและหยุดอยู่
 
-```powershell
+`
 docker ps -a
-```
+`
 
 ### Start RabbitMQ
 
-```powershell
+`
 docker start rabbitmq-distributed-product
-```
+`
 
 ### Stop RabbitMQ
 
-```powershell
+`
 docker stop rabbitmq-distributed-product
-```
+`
 
 ### Restart RabbitMQ
 
-```powershell
+`
 docker restart rabbitmq-distributed-product
-```
+`
 
 ### ดู Log ของ RabbitMQ
 
-```powershell
+`
 docker logs rabbitmq-distributed-product
-```
+`
 
 ### ลบ container RabbitMQ
 
 ใช้เมื่อต้องการสร้างใหม่เท่านั้น:
 
-```powershell
+`
 docker rm -f rabbitmq-distributed-product
-```
+`
 
 จากนั้นสร้างใหม่ด้วย:
 
-```powershell
+`
 docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest rabbitmq:3-management
-```
+`
 
 ---
 
@@ -206,7 +207,7 @@ docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e
 
 ใน `appsettings.json` ควรตั้งค่า RabbitMQ ประมาณนี้:
 
-```json
+`
 {
   "RabbitMQ": {
     "Host": "localhost",
@@ -215,16 +216,16 @@ docker run -d --name rabbitmq-distributed-product -p 5672:5672 -p 15672:15672 -e
     "Password": "guest"
   }
 }
-```
+`
 
 หรือถ้าใช้ Environment Variable:
 
-```env
+`
 RabbitMQ__Host=localhost
 RabbitMQ__Port=5672
 RabbitMQ__Username=guest
 RabbitMQ__Password=guest
-```
+`
 
 ---
 
@@ -234,9 +235,9 @@ RabbitMQ__Password=guest
 
 ตัวอย่าง:
 
-```powershell
+`
 dotnet run
-```
+`
 
 หรือถ้าใช้ Visual Studio:
 
@@ -254,15 +255,15 @@ dotnet run
 
 ตัวอย่าง:
 
-```powershell
+`
 rabbitmq-distributed-product
-```
+`
 
 แล้วเจอ error:
 
-```text
+`
 The term 'rabbitmq-distributed-product' is not recognized as the name of a cmdlet
-```
+`
 
 สาเหตุ:
 

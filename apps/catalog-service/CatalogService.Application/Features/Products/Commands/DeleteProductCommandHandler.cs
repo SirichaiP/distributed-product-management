@@ -3,7 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CatalogService.Application.Features.Products.Commands.DeleteProduct;
- 
+
 public sealed class DeleteProductCommandHandler
     : IRequestHandler<DeleteProductCommand, bool>
 {
@@ -26,7 +26,7 @@ public sealed class DeleteProductCommandHandler
             return false;
         }
 
-        product.Deactivate();
+        _context.Products.Remove(product);
 
         await _context.SaveChangesAsync(cancellationToken);
 

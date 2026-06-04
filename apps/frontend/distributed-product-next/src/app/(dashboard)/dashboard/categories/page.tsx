@@ -66,7 +66,7 @@ export default function CategoriesPage() {
         setCategories(data);
         setSelectedCategory(data[0] ?? null);
       } catch (error) {
-        console.error(error);
+        console.error("Load categories failed:", error);
 
         if (!cancelled) {
           alert("โหลดข้อมูล Categories ไม่สำเร็จ");
@@ -92,7 +92,7 @@ export default function CategoriesPage() {
       setCategories(data);
       setSelectedCategory((current) => getSelectedCategory(data, current));
     } catch (error) {
-      console.error(error);
+      console.error("Reload categories failed:", error);
       alert("โหลดข้อมูล Categories ไม่สำเร็จ");
     }
   }
@@ -101,11 +101,15 @@ export default function CategoriesPage() {
     const keyword = search.trim().toLowerCase();
 
     return categories.filter((item) => {
+      const name = item.name ?? "";
+      const slug = item.slug ?? "";
+      const description = item.description ?? "";
+
       const matchKeyword =
         !keyword ||
-        item.name.toLowerCase().includes(keyword) ||
-        item.slug.toLowerCase().includes(keyword) ||
-        (item.description ?? "").toLowerCase().includes(keyword);
+        name.toLowerCase().includes(keyword) ||
+        slug.toLowerCase().includes(keyword) ||
+        description.toLowerCase().includes(keyword);
 
       const matchStatus =
         status === "all" ||
@@ -117,11 +121,19 @@ export default function CategoriesPage() {
   }, [categories, search, status]);
 
   function handleAddClick() {
+    if (!allowWrite) {
+      return;
+    }
+
     setEditingCategory(null);
     setModalOpen(true);
   }
 
   function handleEditClick(category: Category) {
+    if (!allowWrite) {
+      return;
+    }
+
     setEditingCategory(category);
     setModalOpen(true);
   }
@@ -131,18 +143,20 @@ export default function CategoriesPage() {
       return;
     }
 
-    const ok = confirm(`ต้องการลบ Category "${category.name}" ใช่ไหม?`);
+    const confirmed = window.confirm(
+      `ต้องการลบ Category "${category.name}" ใช่ไหม?`
+    );
 
-    if (!ok) {
+    if (!confirmed) {
       return;
     }
 
     try {
-      await categoryService.delete(category.id);
+      await categoryService.remove(category.id);
       await reloadCategories();
     } catch (error) {
-      console.error(error);
-      alert("ลบ Category ไม่สำเร็จ");
+      console.error("Delete category failed:", error);
+      alert(error instanceof Error ? error.message : "ลบ Category ไม่สำเร็จ");
     }
   }
 
@@ -167,7 +181,7 @@ export default function CategoriesPage() {
 
       await reloadCategories();
     } catch (error) {
-      console.error(error);
+      console.error("Save category failed:", error);
       alert("บันทึก Category ไม่สำเร็จ");
     } finally {
       setSaveLoading(false);
