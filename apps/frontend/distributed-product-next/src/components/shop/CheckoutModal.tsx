@@ -57,7 +57,7 @@ export default function CheckoutModal({
 
             <button
               type="button"
-              className="checkout-primary-btn"
+              className="checkout-modal-button"
               onClick={onClose}
             >
               ปิด
@@ -104,7 +104,7 @@ export default function CheckoutModal({
 
               <button
                 type="button"
-                className="checkout-primary-btn"
+                className="checkout-modal-button"
                 onClick={onConfirm}
                 disabled={loading}
               >

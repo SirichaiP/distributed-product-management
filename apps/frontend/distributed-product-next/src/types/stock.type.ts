@@ -1,21 +1,15 @@
 // src/types/stock.type.ts
 
-export type StockStatus = "ok" | "warn" | "low";
-
-export type StockFilter = "all" | StockStatus;
-
-export type AdjustStockType = "add" | "subtract" | "set";
-
-export type ProductActiveStatus = "Active" | "Inactive";
-
 export interface StockProduct {
   id: string;
   name: string;
   sku: string;
   category: string;
-  price: number;
   stock: number;
-  status: ProductActiveStatus;
+  reserved: number;
+  available: number;
+  price: number;
+  status: string;
 }
 
 export interface StockSummary {
@@ -27,11 +21,41 @@ export interface StockSummary {
 
 export interface AdjustStockRequest {
   quantity: number;
-  type: AdjustStockType;
+  type?: string;
 }
 
 export interface ReserveStockRequest {
   orderId: string;
   quantity: number;
   expiresAt: string;
+}
+
+export interface ProductApiResponse {
+  id: string;
+  name: string;
+  sku?: string | null;
+
+  price?: number | null;
+  unitPrice?: number | null;
+
+  stock?: number | null;
+  stockQuantity?: number | null;
+
+  reserved?: number | null;
+  reservedQuantity?: number | null;
+
+  available?: number | null;
+  availableQuantity?: number | null;
+
+  isActive?: boolean;
+
+  category?:
+    | string
+    | {
+        id?: string;
+        name?: string;
+      }
+    | null;
+
+  categoryName?: string | null;
 }

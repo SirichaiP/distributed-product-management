@@ -2,284 +2,204 @@
 
 // src/components/stock-management/ReserveStockModal.tsx
 
-import { useEffect, useMemo, useState } from "react";
-
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { stockService } from "@/services/stock.service";
 import type { StockProduct } from "@/types/stock.type";
 
 interface ReserveStockModalProps {
   product: StockProduct | null;
   onClose: () => void;
-  onSuccess: (productId: string, newStock: number) => void;
+  onSuccess: () => Promise<void> | void;
 }
-
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function ReserveStockModal({
   product,
   onClose,
   onSuccess,
 }: ReserveStockModalProps) {
-  if (!product) return null;
-
-  return (
-    <ReserveStockModalContent
-      key={product.id}
-      product={product}
-      onClose={onClose}
-      onSuccess={onSuccess}
-    />
-  );
-}
-
-interface ReserveStockModalContentProps {
-  product: StockProduct;
-  onClose: () => void;
-  onSuccess: (productId: string, newStock: number) => void;
-}
-
-function ReserveStockModalContent({
-  product,
-  onClose,
-  onSuccess,
-}: ReserveStockModalContentProps) {
+  const [quantity, setQuantity] = useState("1");
   const [orderId, setOrderId] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [expiryMinutes, setExpiryMinutes] = useState(15);
-  const [customExpiresAt, setCustomExpiresAt] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
+    if (!product) return;
 
-    window.addEventListener("keydown", handleEscape);
+    queueMicrotask(() => {
+      setQuantity("1");
+      setOrderId("");
+      setSaving(false);
+      setError(null);
+    });
+  }, [product]);
 
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  const availableStock = useMemo(() => {
+    if (!product) return 0;
 
-  const remainingStock = useMemo(() => {
-    return product.stock - quantity;
-  }, [product.stock, quantity]);
+    if (typeof product.available === "number") {
+      return product.available;
+    }
 
-  const isValidOrderId = uuidRegex.test(orderId);
+    return Math.max(product.stock - product.reserved, 0);
+  }, [product]);
 
-  async function handleSubmit() {
-    if (!isValidOrderId) return;
-    if (quantity <= 0) return;
-    if (quantity > product.stock) return;
+  if (!product) {
+    return null;
+  }
 
-    let expiresAt: string;
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    if (expiryMinutes > 0) {
-      expiresAt = new Date(Date.now() + expiryMinutes * 60000).toISOString();
-    } else {
-      if (!customExpiresAt) return;
-      expiresAt = new Date(customExpiresAt).toISOString();
+    if (!product) return;
+
+    const parsedQuantity = Number(quantity);
+
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      setError("กรุณาระบุจำนวนที่ต้องการจองให้ถูกต้อง");
+      return;
+    }
+
+    if (parsedQuantity > availableStock) {
+      setError(
+        `จำนวนที่จองมากกว่าสินค้าพร้อมขาย ปัจจุบันพร้อมขาย ${availableStock.toLocaleString(
+          "th-TH"
+        )} ชิ้น`
+      );
+      return;
     }
 
     try {
       setSaving(true);
+      setError(null);
 
-      await stockService.reserveStock(product.id, {
-        orderId,
-        quantity,
-        expiresAt,
-      });
+const fallbackOrderId = "00000000-0000-0000-0000-000000000000";
+const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-      onSuccess(product.id, product.stock - quantity);
+await stockService.reserveStock(product.id, {
+  orderId: orderId.trim() || fallbackOrderId,
+  quantity: parsedQuantity,
+  expiresAt,
+});
+
+      await onSuccess();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "ไม่สามารถจอง Stock ได้ กรุณาลองใหม่อีกครั้ง";
+
+      setError(message);
     } finally {
       setSaving(false);
     }
   }
 
+  function handleClose() {
+    if (saving) return;
+    onClose();
+  }
+
   return (
-    <div className="stock-modal-overlay open" onMouseDown={onClose}>
-      <div
-        className="stock-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+    <div className="stock-modal-backdrop">
+      <section className="stock-modal" role="dialog" aria-modal="true">
         <div className="stock-modal-header">
           <div>
-            <h3>Reserve stock</h3>
-            <p>Temporarily hold units for an order</p>
+            <h2 className="stock-modal-title">Reserve Stock</h2>
+            <p className="stock-modal-subtitle">
+              จองสินค้าเพื่อล็อกจำนวนไว้สำหรับ Order
+            </p>
           </div>
 
-          <button type="button" className="stock-modal-close" onClick={onClose}>
+          <button
+            type="button"
+            className="stock-modal-close"
+            onClick={handleClose}
+            disabled={saving}
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
 
-        <div className="stock-modal-body">
-          <div className="stock-info-box">
-            Reserved stock is held for a specific order and released when the
-            reservation expires.
-          </div>
+        <form onSubmit={handleSubmit} className="stock-modal-body">
+          <div className="stock-product-box">
+            <div className="stock-product-name">{product.name}</div>
 
-          <div className="stock-product-strip">
-            <div className="stock-product-strip-icon">📦</div>
-
-            <div>
-              <div className="stock-product-strip-name">{product.name}</div>
-              <div className="stock-product-strip-meta">SKU: {product.sku}</div>
-            </div>
-
-            <div className="stock-product-strip-stock">
-              <strong>{product.stock} units</strong>
-              <span>Available</span>
+            <div className="stock-product-meta">
+              <span>SKU: {product.sku}</span>
+              <span>Stock:</span>
+              <strong>{product.stock.toLocaleString("th-TH")}</strong>
+              <span>· Reserved:</span>
+              <strong>{product.reserved.toLocaleString("th-TH")}</strong>
+              <span>· Available:</span>
+              <strong>{availableStock.toLocaleString("th-TH")}</strong>
             </div>
           </div>
+
+          {error && <div className="stock-alert-danger">{error}</div>}
 
           <div className="stock-form-group">
-            <label>Order ID</label>
+            <label htmlFor="reserveQuantity" className="stock-form-label">
+              Quantity
+            </label>
 
             <input
-              type="text"
-              placeholder="550e8400-e29b-41d4-a716-446655440000"
-              value={orderId}
-              onChange={(event) => setOrderId(event.target.value)}
+              id="reserveQuantity"
+              type="number"
+              min={1}
+              max={Math.max(availableStock, 1)}
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              disabled={saving}
+              placeholder="จำนวนที่ต้องการจอง"
+              className="stock-form-control"
             />
 
-            <small className={orderId && !isValidOrderId ? "danger" : ""}>
-              {orderId && !isValidOrderId
-                ? "Invalid UUID format"
-                : "UUID format — generated by Order Service"}
-            </small>
+            <p className="stock-form-help">
+              จำนวนที่จองต้องไม่เกินสินค้าพร้อมขาย
+            </p>
           </div>
 
           <div className="stock-form-group">
-            <label>Quantity to reserve</label>
+            <label htmlFor="reserveOrderId" className="stock-form-label">
+              Order ID
+            </label>
 
-            <div className="stock-qty-wrap">
-              <button
-                type="button"
-                onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-              >
-                −
-              </button>
+            <input
+              id="reserveOrderId"
+              type="text"
+              value={orderId}
+              onChange={(event) => setOrderId(event.target.value)}
+              disabled={saving}
+              placeholder="ไม่ใส่ก็ได้ ถ้า backend ไม่บังคับ"
+              className="stock-form-control"
+            />
 
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(event) => {
-                  const value = Number(event.target.value);
-                  setQuantity(Number.isNaN(value) ? 1 : Math.max(1, value));
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setQuantity((prev) => prev + 1)}
-              >
-                +
-              </button>
-            </div>
+            <p className="stock-form-help">
+              ใช้สำหรับผูกการจอง Stock กับ Order ถ้ามี
+            </p>
           </div>
 
-          <div className="stock-form-group">
-            <label>Expires at</label>
+          <div className="stock-modal-actions">
+            <button
+              type="button"
+              className="stock-btn-secondary"
+              onClick={handleClose}
+              disabled={saving}
+            >
+              Cancel
+            </button>
 
-            <div className="stock-expire-options">
-              <button
-                type="button"
-                className={expiryMinutes === 15 ? "active" : ""}
-                onClick={() => setExpiryMinutes(15)}
-              >
-                15 min
-              </button>
-
-              <button
-                type="button"
-                className={expiryMinutes === 30 ? "active" : ""}
-                onClick={() => setExpiryMinutes(30)}
-              >
-                30 min
-              </button>
-
-              <button
-                type="button"
-                className={expiryMinutes === 60 ? "active" : ""}
-                onClick={() => setExpiryMinutes(60)}
-              >
-                1 hour
-              </button>
-
-              <button
-                type="button"
-                className={expiryMinutes === 1440 ? "active" : ""}
-                onClick={() => setExpiryMinutes(1440)}
-              >
-                24 hours
-              </button>
-
-              <button
-                type="button"
-                className={expiryMinutes === 0 ? "active" : ""}
-                onClick={() => setExpiryMinutes(0)}
-              >
-                Custom
-              </button>
-            </div>
-
-            {expiryMinutes === 0 && (
-              <input
-                type="datetime-local"
-                value={customExpiresAt}
-                onChange={(event) => setCustomExpiresAt(event.target.value)}
-              />
-            )}
+            <button
+              type="submit"
+              className="stock-btn-primary"
+              disabled={saving || availableStock <= 0}
+            >
+              {saving ? "Saving..." : "Reserve stock"}
+            </button>
           </div>
-
-          {remainingStock < 0 && (
-            <div className="stock-warn-box">
-              Requested qty exceeds available stock.
-            </div>
-          )}
-
-          {remainingStock >= 0 && remainingStock < 10 && (
-            <div className="stock-warn-box">
-              After this reservation only {remainingStock} units will remain.
-            </div>
-          )}
-
-          <div className="stock-preview-chip">
-            <span>Remaining available after reservation</span>
-            <strong>{Math.max(0, remainingStock)} units</strong>
-          </div>
-        </div>
-
-        <div className="stock-modal-footer">
-          <button
-            type="button"
-            className="stock-btn-secondary"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            className="stock-btn-primary purple"
-            disabled={
-              saving ||
-              !isValidOrderId ||
-              quantity <= 0 ||
-              quantity > product.stock
-            }
-            onClick={handleSubmit}
-          >
-            {saving ? "Reserving..." : "Reserve stock"}
-          </button>
-        </div>
-      </div>
+        </form>
+      </section>
     </div>
   );
 }

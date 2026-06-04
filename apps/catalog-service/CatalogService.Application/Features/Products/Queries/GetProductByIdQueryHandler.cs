@@ -15,35 +15,60 @@ public sealed class GetProductByIdQueryHandler
         _context = context;
     }
 
-    public async Task<ProductDto?> Handle(GetProductByIdQuery request,CancellationToken cancellationToken)
+    public async Task<ProductDto?> Handle(
+        GetProductByIdQuery request,
+        CancellationToken cancellationToken)
     {
-        return await _context.Products
+        var product = await _context.Products
             .AsNoTracking()
             .Include(x => x.Category)
             .Include(x => x.Images)
-            .Where(x => x.Id == request.Id)
-            .Select(x => new ProductDto(
-                x.Id,
-                x.CategoryId,
-                x.Category.Name,
-                x.Name,
-                x.Slug,
-                x.Description,
-                x.Price,
-                x.Currency,
-                x.StockQuantity,
-                x.Sku,
-                x.IsActive,
-                x.CreatedAt,
-                x.UpdatedAt,
-                x.Images
-                    .OrderBy(i => i.SortOrder)
-                    .Select(i => new ProductImageDto(
-                        i.Id,
-                        i.Url,
-                        i.SortOrder,
-                        i.IsPrimary))
-                    .ToList()))
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+
+        if (product is null)
+        {
+            return null;
+        }
+
+        var now = DateTime.UtcNow;
+
+        var reservedQuantity = await _context.StockReservations
+            .AsNoTracking()
+            .Where(x =>
+                x.ProductId == product.Id &&
+                x.Status == "Reserved" &&
+                (
+                    x.ExpiresAt == default ||
+                    x.ExpiresAt > now
+                ))
+            .SumAsync(x => (int?)x.Quantity, cancellationToken) ?? 0;
+
+        var availableQuantity = Math.Max(
+            product.StockQuantity - reservedQuantity,
+            0);
+
+        return new ProductDto(
+            product.Id,
+            product.CategoryId,
+            product.Category.Name,
+            product.Name,
+            product.Slug,
+            product.Description,
+            product.Price,
+            product.Currency,
+            product.StockQuantity,
+            availableQuantity,
+            product.Sku,
+            product.IsActive,
+            product.CreatedAt,
+            product.UpdatedAt,
+            product.Images
+                .OrderBy(i => i.SortOrder)
+                .Select(i => new ProductImageDto(
+                    i.Id,
+                    i.Url,
+                    i.SortOrder,
+                    i.IsPrimary))
+                .ToList());
     }
 }

@@ -2,7 +2,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   CategoryOption,
   CreateProductRequest,
@@ -20,6 +20,10 @@ interface ProductModalProps {
   ) => Promise<void>;
 }
 
+type ProductFormState = CreateProductRequest & {
+  isActive: boolean;
+};
+
 const DEFAULT_PRODUCT_IMAGE =
   "https://placehold.co/600x400?text=Product";
 
@@ -34,7 +38,7 @@ function createSlug(value: string) {
 
 function createFormFromProduct(
   product?: ProductResponse | null
-): CreateProductRequest {
+): ProductFormState {
   if (!product) {
     return {
       categoryId: "",
@@ -46,6 +50,7 @@ function createFormFromProduct(
       currency: "THB",
       stockQuantity: 0,
       sku: "",
+      isActive: true,
     };
   }
 
@@ -59,6 +64,7 @@ function createFormFromProduct(
     currency: product.currency || "THB",
     stockQuantity: Number(product.stockQuantity ?? 0),
     sku: product.sku ?? "",
+    isActive: product.isActive !== false,
   };
 }
 
@@ -73,17 +79,26 @@ export default function ProductModal({
 
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState<CreateProductRequest>(() =>
+  const [form, setForm] = useState<ProductFormState>(() =>
     createFormFromProduct(product)
   );
 
   const autoSlug = useMemo(() => createSlug(form.name), [form.name]);
 
+  useEffect(() => {
+    if (!show) return;
+
+    queueMicrotask(() => {
+      setForm(createFormFromProduct(product));
+      setSubmitting(false);
+    });
+  }, [show, product]);
+
   if (!show) return null;
 
-  function updateForm<K extends keyof CreateProductRequest>(
+  function updateForm<K extends keyof ProductFormState>(
     key: K,
-    value: CreateProductRequest[K]
+    value: ProductFormState[K]
   ) {
     setForm((prev) => ({
       ...prev,
@@ -92,6 +107,7 @@ export default function ProductModal({
   }
 
   function handleClose() {
+    if (submitting) return;
     onClose();
   }
 
@@ -121,17 +137,36 @@ export default function ProductModal({
     try {
       setSubmitting(true);
 
-      await onSubmit({
+      if (isEditMode) {
+        const updatePayload: UpdateProductRequest = {
+          categoryId: form.categoryId,
+          name: form.name.trim(),
+          slug: form.slug.trim() || autoSlug,
+          description: form.description?.trim() || undefined,
+          price: Number(form.price),
+          currency: form.currency || "THB",
+          stockQuantity: Number(form.stockQuantity),
+          sku: form.sku.trim(),
+          isActive: form.isActive,
+        };
+
+        await onSubmit(updatePayload);
+        return;
+      }
+
+      const createPayload: CreateProductRequest = {
         categoryId: form.categoryId,
         name: form.name.trim(),
         imageUrl: form.imageUrl?.trim() || DEFAULT_PRODUCT_IMAGE,
         slug: form.slug.trim() || autoSlug,
-        description: form.description?.trim(),
+        description: form.description?.trim() || undefined,
         price: Number(form.price),
         currency: form.currency || "THB",
         stockQuantity: Number(form.stockQuantity),
         sku: form.sku.trim(),
-      });
+      };
+
+      await onSubmit(createPayload);
     } finally {
       setSubmitting(false);
     }
@@ -149,6 +184,7 @@ export default function ProductModal({
             type="button"
             className="product-modal-close"
             onClick={handleClose}
+            disabled={submitting}
             aria-label="Close"
           >
             <svg
@@ -172,45 +208,48 @@ export default function ProductModal({
                 className="form-input"
                 placeholder="Enter product name"
                 value={form.name}
+                disabled={submitting}
                 onChange={(e) => updateForm("name", e.target.value)}
               />
             </div>
 
-            <div className="form-group full">
-              <label className="form-label">Image URL</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder={DEFAULT_PRODUCT_IMAGE}
-                value={form.imageUrl}
-                onChange={(e) => updateForm("imageUrl", e.target.value)}
-              />
+            {!isEditMode && (
+              <div className="form-group full">
+                <label className="form-label">Image URL</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={DEFAULT_PRODUCT_IMAGE}
+                  value={form.imageUrl}
+                  disabled={submitting}
+                  onChange={(e) => updateForm("imageUrl", e.target.value)}
+                />
 
-              {form.imageUrl?.trim() && (
-                <div className="product-url-preview">
-                  <Image
-                    src={form.imageUrl}
-                    alt="Product preview"
-                    width={120}
-                    height={80}
-                    className="product-image-preview"
-                    unoptimized
-                    onError={(e) => {
-                      e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+                {form.imageUrl?.trim() && (
+                  <div className="product-url-preview">
+                    <Image
+                      src={form.imageUrl}
+                      alt="Product preview"
+                      width={120}
+                      height={80}
+                      className="product-image-preview"
+                      unoptimized
+                      onError={(e) => {
+                        e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">Category</label>
               <select
                 className="form-select"
                 value={form.categoryId}
-                onChange={(e) =>
-                  updateForm("categoryId", e.target.value)
-                }
+                disabled={submitting}
+                onChange={(e) => updateForm("categoryId", e.target.value)}
               >
                 <option value="">Select category</option>
 
@@ -229,6 +268,7 @@ export default function ProductModal({
                 className="form-input"
                 placeholder="e.g. ELEC-HP-001"
                 value={form.sku}
+                disabled={submitting}
                 onChange={(e) => updateForm("sku", e.target.value)}
               />
             </div>
@@ -242,6 +282,7 @@ export default function ProductModal({
                 min="0"
                 step="0.01"
                 value={form.price === 0 ? "" : form.price}
+                disabled={submitting}
                 onChange={(e) =>
                   updateForm("price", Number(e.target.value))
                 }
@@ -249,7 +290,9 @@ export default function ProductModal({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Initial Stock</label>
+              <label className="form-label">
+                {isEditMode ? "Stock Quantity" : "Initial Stock"}
+              </label>
               <input
                 type="number"
                 className="form-input"
@@ -258,6 +301,7 @@ export default function ProductModal({
                 value={
                   form.stockQuantity === 0 ? "" : form.stockQuantity
                 }
+                disabled={submitting}
                 onChange={(e) =>
                   updateForm(
                     "stockQuantity",
@@ -267,12 +311,31 @@ export default function ProductModal({
               />
             </div>
 
+            {isEditMode && (
+              <div className="form-group full">
+                <label className="form-label">Status</label>
+
+                <select
+                  className="form-select"
+                  value={form.isActive ? "active" : "inactive"}
+                  disabled={submitting}
+                  onChange={(e) =>
+                    updateForm("isActive", e.target.value === "active")
+                  }
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            )}
+
             <div className="form-group full">
               <label className="form-label">Description</label>
               <textarea
                 className="form-textarea"
                 placeholder="Enter product description..."
                 value={form.description}
+                disabled={submitting}
                 onChange={(e) =>
                   updateForm("description", e.target.value)
                 }
@@ -286,6 +349,7 @@ export default function ProductModal({
             type="button"
             className="btn-secondary product-cancel-button"
             onClick={handleClose}
+            disabled={submitting}
           >
             Cancel
           </button>

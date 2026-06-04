@@ -9,6 +9,7 @@ import ProductCard from "@/components/shop/ProductCard";
 import ShopFilters from "@/components/shop/ShopFilters";
 
 import { categoryService } from "@/services/category.service";
+import { orderService } from "@/services/order.service";
 import { shopService } from "@/services/shop.service";
 import {
   CartItem,
@@ -18,7 +19,7 @@ import {
   ShopProduct,
 } from "@/types/shop.type";
 
-const MOCK_USER_ID = "11111111-1111-1111-1111-111111111111";
+const DEMO_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
 
 export default function ShopPage() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
@@ -133,6 +134,10 @@ export default function ShopPage() {
     );
   }, [cartItems]);
 
+  function getProductAvailableQuantity(product: ShopProduct) {
+    return product.availableQuantity ?? product.stockQuantity;
+  }
+
   function showToast(message: string) {
     setToastMessage(message);
 
@@ -141,17 +146,58 @@ export default function ShopPage() {
     }, 2800);
   }
 
-  function getCurrentUserId(): string {
-    if (typeof window === "undefined") {
-      return MOCK_USER_ID;
+  async function recheckCartStockBeforeCheckout() {
+    const latestProducts = await shopService.getProducts({
+      search: searchText,
+      categoryId:
+        currentCategory === "all" ? undefined : currentCategory,
+      isActive: true,
+    });
+
+    const latestProductMap = new Map(
+      latestProducts.map((product) => [product.id, product])
+    );
+
+    for (const cartItem of cartItems) {
+      const latestProduct = latestProductMap.get(cartItem.productId);
+
+      if (!latestProduct) {
+        return {
+          valid: false,
+          message: `ไม่พบสินค้า "${cartItem.productName}" ในระบบ`,
+          products: latestProducts,
+        };
+      }
+
+      const availableQuantity =
+        latestProduct.availableQuantity ?? latestProduct.stockQuantity;
+
+      if (availableQuantity <= 0) {
+        return {
+          valid: false,
+          message: `สินค้า "${cartItem.productName}" หมดแล้ว`,
+          products: latestProducts,
+        };
+      }
+
+      if (cartItem.quantity > availableQuantity) {
+        return {
+          valid: false,
+          message: `สินค้า "${cartItem.productName}" เหลือพร้อมขาย ${availableQuantity.toLocaleString(
+            "th-TH"
+          )} ชิ้น แต่คุณเลือก ${cartItem.quantity.toLocaleString(
+            "th-TH"
+          )} ชิ้น`,
+          products: latestProducts,
+        };
+      }
     }
 
-    const userId =
-      localStorage.getItem("userId") ||
-      localStorage.getItem("currentUserId") ||
-      MOCK_USER_ID;
-
-    return userId;
+    return {
+      valid: true,
+      message: "",
+      products: latestProducts,
+    };
   }
 
   function addToCart(productId: string) {
@@ -159,16 +205,18 @@ export default function ShopPage() {
 
     if (!product) return;
 
-    if (product.stockQuantity <= 0) {
-      showToast("⚠ สินค้าหมด");
+    const availableQuantity = getProductAvailableQuantity(product);
+
+    if (availableQuantity <= 0) {
+      showToast("⚠ สินค้าพร้อมขายหมด");
       return;
     }
 
     setCart((prev) => {
       const currentItem = prev[productId];
 
-      if (currentItem && currentItem.quantity >= product.stockQuantity) {
-        showToast("⚠ ไม่สามารถเพิ่มได้ สินค้าไม่พอ");
+      if (currentItem && currentItem.quantity >= availableQuantity) {
+        showToast("⚠ ไม่สามารถเพิ่มได้ สินค้าพร้อมขายไม่พอ");
         return prev;
       }
 
@@ -178,6 +226,7 @@ export default function ShopPage() {
           [productId]: {
             ...currentItem,
             quantity: currentItem.quantity + 1,
+            stockQuantity: availableQuantity,
           },
         };
       }
@@ -190,8 +239,8 @@ export default function ShopPage() {
           categoryName: product.categoryName,
           unitPrice: product.price,
           quantity: 1,
-          stockQuantity: product.stockQuantity,
-          imageUrl: product.imageUrl,
+          stockQuantity: availableQuantity,
+          imageUrl: "https://source.unsplash.com/random/400x400?sig=" + product.id,
         },
       };
     });
@@ -200,13 +249,24 @@ export default function ShopPage() {
   }
 
   function increaseQty(productId: string) {
+    const latestProduct = products.find((item) => item.id === productId);
+
+    const availableQuantity = latestProduct
+      ? getProductAvailableQuantity(latestProduct)
+      : 0;
+
     setCart((prev) => {
       const currentItem = prev[productId];
 
       if (!currentItem) return prev;
 
-      if (currentItem.quantity >= currentItem.stockQuantity) {
-        showToast("⚠ ไม่สามารถเพิ่มได้ สินค้าไม่พอ");
+      if (availableQuantity <= 0) {
+        showToast("⚠ สินค้าพร้อมขายหมด");
+        return prev;
+      }
+
+      if (currentItem.quantity >= availableQuantity) {
+        showToast("⚠ ไม่สามารถเพิ่มได้ สินค้าพร้อมขายไม่พอ");
         return prev;
       }
 
@@ -215,6 +275,7 @@ export default function ShopPage() {
         [productId]: {
           ...currentItem,
           quantity: currentItem.quantity + 1,
+          stockQuantity: availableQuantity,
         },
       };
     });
@@ -281,8 +342,21 @@ export default function ShopPage() {
     try {
       setCheckoutLoading(true);
 
+      // 1. Re-check stock ล่าสุดจาก Backend ก่อน Checkout จริง
+      const stockCheckResult = await recheckCartStockBeforeCheckout();
+
+      // 2. อัปเดตสินค้าในหน้า Shop จากข้อมูลล่าสุด
+      setProducts(stockCheckResult.products);
+
+      // 3. ถ้าสินค้าไม่พอ หยุด ไม่สร้าง Order
+      if (!stockCheckResult.valid) {
+        showToast(`⚠ ${stockCheckResult.message}`);
+        return;
+      }
+
+      // 4. ถ้าสินค้าพอ ค่อยสร้าง Order
       const payload = {
-        userId: getCurrentUserId(),
+        userId: DEMO_USER_ID,
         currency: "THB",
         items: cartItems.map((item) => ({
           productId: item.productId,
@@ -294,16 +368,23 @@ export default function ShopPage() {
 
       console.log("Place order payload:", payload);
 
-      const order = await shopService.placeOrder(payload);
+      const order = await orderService.placeOrder(payload);
 
       setOrderId(order.id);
       setCheckoutSuccess(true);
       setCart({});
 
+      // 5. หลัง Checkout สำเร็จ ให้ get products ใหม่อีกครั้ง
       await fetchProducts();
+
+      showToast("✅ สั่งซื้อสำเร็จ อัปเดตสินค้าล่าสุดแล้ว");
     } catch (err) {
       console.error(err);
-      showToast("⚠ สั่งซื้อไม่สำเร็จ กรุณาตรวจสอบ API หรือ Stock");
+
+      // ถ้า Backend reject เพราะ Stock ไม่พอ ให้โหลดสินค้าใหม่ด้วย
+      await fetchProducts();
+
+      showToast("⚠ สั่งซื้อไม่สำเร็จ กรุณาตรวจสอบสินค้าอีกครั้ง");
     } finally {
       setCheckoutLoading(false);
     }

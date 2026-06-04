@@ -3,30 +3,70 @@
 import { apiClient } from "@/lib/api-client";
 import type {
   AdjustStockRequest,
+  ProductApiResponse,
   ReserveStockRequest,
   StockProduct,
 } from "@/types/stock.type";
 
-type StockApiResponse =
-  | StockProduct[]
+type ProductListApiResponse =
+  | ProductApiResponse[]
   | {
-      items: StockProduct[];
-    }
-  | {
-      data: StockProduct[];
+      items?: ProductApiResponse[];
+      data?: ProductApiResponse[];
     };
 
-function normalizeProducts(response: StockApiResponse): StockProduct[] {
+function getCategoryName(product: ProductApiResponse): string {
+  if (product.categoryName?.trim()) {
+    return product.categoryName;
+  }
+
+  if (typeof product.category === "string" && product.category.trim()) {
+    return product.category;
+  }
+
+  if (product.category && typeof product.category === "object") {
+    return product.category.name?.trim() || "Uncategorized";
+  }
+
+  return "Uncategorized";
+}
+
+function normalizeProduct(product: ProductApiResponse): StockProduct {
+  const stock = Number(product.stockQuantity ?? product.stock ?? 0);
+  const reserved = Number(product.reservedQuantity ?? product.reserved ?? 0);
+
+  const available = Number(
+    product.availableQuantity ??
+      product.available ??
+      Math.max(stock - reserved, 0)
+  );
+
+  const price = Number(product.price ?? product.unitPrice ?? 0);
+
+  return {
+    id: product.id,
+    name: product.name,
+    sku: product.sku?.trim() || "-",
+    category: getCategoryName(product),
+    stock,
+    reserved,
+    available,
+    price,
+    status: product.isActive === false ? "Inactive" : "Active",
+  };
+}
+
+function normalizeProducts(response: ProductListApiResponse): StockProduct[] {
   if (Array.isArray(response)) {
-    return response;
+    return response.map(normalizeProduct);
   }
 
-  if ("items" in response && Array.isArray(response.items)) {
-    return response.items;
+  if (Array.isArray(response.items)) {
+    return response.items.map(normalizeProduct);
   }
 
-  if ("data" in response && Array.isArray(response.data)) {
-    return response.data;
+  if (Array.isArray(response.data)) {
+    return response.data.map(normalizeProduct);
   }
 
   return [];
@@ -34,33 +74,28 @@ function normalizeProducts(response: StockApiResponse): StockProduct[] {
 
 export const stockService = {
   async getProducts(): Promise<StockProduct[]> {
-    const response = await apiClient<StockApiResponse>(
-      "/products?isActive=true",
-      {
-        method: "GET",
-      }
-    );
+    const response = await apiClient<ProductListApiResponse>("/products");
 
     return normalizeProducts(response);
   },
 
   async adjustStock(
     productId: string,
-    request: AdjustStockRequest
+    payload: AdjustStockRequest
   ): Promise<void> {
-    await apiClient<void>(`/products/${productId}/adjust-stock`, {
+    await apiClient(`/products/${productId}/adjust-stock`, {
       method: "POST",
-      body: JSON.stringify(request),
+      body: JSON.stringify(payload),
     });
   },
 
   async reserveStock(
     productId: string,
-    request: ReserveStockRequest
+    payload: ReserveStockRequest
   ): Promise<void> {
-    await apiClient<void>(`/products/${productId}/reserve-stock`, {
+    await apiClient(`/products/${productId}/reserve-stock`, {
       method: "POST",
-      body: JSON.stringify(request),
+      body: JSON.stringify(payload),
     });
   },
 };

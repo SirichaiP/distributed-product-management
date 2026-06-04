@@ -63,12 +63,6 @@ export interface CategoryOption {
   name: string;
 }
 
-export interface AddProductImageRequest {
-  url: string;
-  sortOrder: number;
-  isPrimary: boolean;
-}
-
 export interface UploadImageResponse {
   url: string;
 }

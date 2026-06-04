@@ -2,15 +2,14 @@
 
 // src/components/stock-management/AdjustStockModal.tsx
 
-import { useEffect, useMemo, useState } from "react";
-
+import { FormEvent, useEffect, useState } from "react";
 import { stockService } from "@/services/stock.service";
-import type { AdjustStockType, StockProduct } from "@/types/stock.type";
+import type { StockProduct } from "@/types/stock.type";
 
 interface AdjustStockModalProps {
   product: StockProduct | null;
   onClose: () => void;
-  onSuccess: (productId: string, newStock: number) => void;
+  onSuccess: () => Promise<void> | void;
 }
 
 export default function AdjustStockModal({
@@ -18,212 +17,155 @@ export default function AdjustStockModal({
   onClose,
   onSuccess,
 }: AdjustStockModalProps) {
-  if (!product) return null;
-
-  return (
-    <AdjustStockModalContent
-      key={product.id}
-      product={product}
-      onClose={onClose}
-      onSuccess={onSuccess}
-    />
-  );
-}
-
-interface AdjustStockModalContentProps {
-  product: StockProduct;
-  onClose: () => void;
-  onSuccess: (productId: string, newStock: number) => void;
-}
-
-function AdjustStockModalContent({
-  product,
-  onClose,
-  onSuccess,
-}: AdjustStockModalContentProps) {
-  const [type, setType] = useState<AdjustStockType>("add");
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState("1");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
+    if (!product) return;
 
-    window.addEventListener("keydown", handleEscape);
+    queueMicrotask(() => {
+      setQuantity("1");
+      setReason("");
+      setSaving(false);
+      setError(null);
+    });
+  }, [product]);
 
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
+  if (!product) {
+    return null;
+  }
 
-  const previewStock = useMemo(() => {
-    if (type === "add") {
-      return product.stock + quantity;
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!product) return;
+
+    const parsedQuantity = Number(quantity);
+
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity === 0) {
+      setError("กรุณาระบุจำนวนที่ต้องการปรับ Stock ให้ถูกต้อง");
+      return;
     }
-
-    if (type === "subtract") {
-      return Math.max(0, product.stock - quantity);
-    }
-
-    return quantity;
-  }, [product.stock, type, quantity]);
-
-  async function handleSubmit() {
-    if (quantity <= 0) return;
 
     try {
       setSaving(true);
+      setError(null);
 
-      await stockService.adjustStock(product.id, {
-        quantity,
-        type,
-      });
+  await stockService.adjustStock(product.id, {
+  quantity: parsedQuantity,
+  type: parsedQuantity > 0 ? "Increase" : "Decrease",
+});
+      await onSuccess();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "ไม่สามารถปรับ Stock ได้ กรุณาลองใหม่อีกครั้ง";
 
-      onSuccess(product.id, previewStock);
+      setError(message);
     } finally {
       setSaving(false);
     }
   }
 
+  function handleClose() {
+    if (saving) return;
+    onClose();
+  }
+
   return (
-    <div className="stock-modal-overlay open" onMouseDown={onClose}>
-      <div
-        className="stock-modal"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+    <div className="stock-modal-backdrop">
+      <section className="stock-modal" role="dialog" aria-modal="true">
         <div className="stock-modal-header">
           <div>
-            <h3>Adjust stock</h3>
-            <p>Add, subtract, or set stock quantity</p>
+            <h2 className="stock-modal-title">Adjust Stock</h2>
+            <p className="stock-modal-subtitle">
+              ปรับจำนวนสินค้าในคลังสำหรับรายการนี้
+            </p>
           </div>
 
-          <button type="button" className="stock-modal-close" onClick={onClose}>
+          <button
+            type="button"
+            className="stock-modal-close"
+            onClick={handleClose}
+            disabled={saving}
+            aria-label="Close"
+          >
             ×
           </button>
         </div>
 
-        <div className="stock-modal-body">
-          <div className="stock-product-strip">
-            <div className="stock-product-strip-icon">📦</div>
+        <form onSubmit={handleSubmit} className="stock-modal-body">
+          <div className="stock-product-box">
+            <div className="stock-product-name">{product.name}</div>
 
-            <div>
-              <div className="stock-product-strip-name">{product.name}</div>
-              <div className="stock-product-strip-meta">SKU: {product.sku}</div>
-            </div>
-
-            <div className="stock-product-strip-stock">
-              <strong>{product.stock} units</strong>
-              <span>Current stock</span>
+            <div className="stock-product-meta">
+              <span>SKU: {product.sku}</span>
+              <span>Current stock:</span>
+              <strong>{product.stock.toLocaleString("th-TH")}</strong>
             </div>
           </div>
 
+          {error && <div className="stock-alert-danger">{error}</div>}
+
           <div className="stock-form-group">
-            <label>Adjustment type</label>
+            <label htmlFor="adjustQuantity" className="stock-form-label">
+              Quantity
+            </label>
 
-            <div className="stock-type-tabs">
-              <button
-                type="button"
-                className={type === "add" ? "active add" : ""}
-                onClick={() => setType("add")}
-              >
-                Add
-              </button>
+            <input
+              id="adjustQuantity"
+              type="number"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              disabled={saving}
+              placeholder="เช่น 10 หรือ -5"
+              className="stock-form-control"
+            />
 
-              <button
-                type="button"
-                className={type === "subtract" ? "active subtract" : ""}
-                onClick={() => setType("subtract")}
-              >
-                Subtract
-              </button>
-
-              <button
-                type="button"
-                className={type === "set" ? "active set" : ""}
-                onClick={() => setType("set")}
-              >
-                Set exact
-              </button>
-            </div>
+            <p className="stock-form-help">
+              ใส่เลขบวกเพื่อเพิ่ม Stock หรือเลขลบเพื่อลด Stock
+            </p>
           </div>
 
           <div className="stock-form-group">
-            <label>Quantity</label>
+            <label htmlFor="adjustReason" className="stock-form-label">
+              Reason
+            </label>
 
-            <div className="stock-qty-wrap">
-              <button
-                type="button"
-                onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-              >
-                −
-              </button>
-
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(event) => {
-                  const value = Number(event.target.value);
-                  setQuantity(Number.isNaN(value) ? 1 : Math.max(1, value));
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setQuantity((prev) => prev + 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
-
-          <div className="stock-form-group">
-            <label>Reason / note</label>
-
-            <select
+            <textarea
+              id="adjustReason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
+              disabled={saving}
+              placeholder="เช่น รับสินค้าเข้า, ปรับยอดจากการตรวจนับ, สินค้าเสียหาย"
+              className="stock-form-control stock-textarea"
+              rows={4}
+            />
+          </div>
+
+          <div className="stock-modal-actions">
+            <button
+              type="button"
+              className="stock-btn-secondary"
+              onClick={handleClose}
+              disabled={saving}
             >
-              <option value="">Select reason (optional)</option>
-              <option value="purchase">Restock from purchase</option>
-              <option value="return">Customer return</option>
-              <option value="damage">Damaged / expired</option>
-              <option value="theft">Shrinkage / theft</option>
-              <option value="correction">Inventory correction</option>
-              <option value="other">Other</option>
-            </select>
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              className="stock-btn-primary"
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save adjustment"}
+            </button>
           </div>
-
-          <div className="stock-preview-chip">
-            <span>New stock after adjustment</span>
-            <strong>{previewStock} units</strong>
-          </div>
-        </div>
-
-        <div className="stock-modal-footer">
-          <button
-            type="button"
-            className="stock-btn-secondary"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="button"
-            className="stock-btn-primary"
-            disabled={saving || quantity <= 0}
-            onClick={handleSubmit}
-          >
-            {saving ? "Processing..." : "Confirm adjustment"}
-          </button>
-        </div>
-      </div>
+        </form>
+      </section>
     </div>
   );
 }

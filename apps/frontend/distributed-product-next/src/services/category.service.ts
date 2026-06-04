@@ -33,28 +33,43 @@ function normalizeCategories(response: CategoryApiResponse): CategoryResponse[] 
   return [];
 }
 
+function buildCategoryEndpoint(params?: {
+  search?: string;
+  isActive?: boolean;
+}): string {
+  const searchParams = new URLSearchParams();
+
+  if (params?.search?.trim()) {
+    searchParams.set("search", params.search.trim());
+  }
+
+  if (typeof params?.isActive === "boolean") {
+    searchParams.set("isActive", String(params.isActive));
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `/categories?${query}` : "/categories";
+}
+
 export const categoryService = {
   async getCategories(params?: {
     search?: string;
     isActive?: boolean;
   }): Promise<CategoryResponse[]> {
-    const searchParams = new URLSearchParams();
-
-    if (params?.search?.trim()) {
-      searchParams.set("search", params.search.trim());
-    }
-
-    if (params?.isActive !== undefined) {
-      searchParams.set("isActive", String(params.isActive));
-    }
-
-    const query = searchParams.toString();
-    const endpoint = query ? `/categories?${query}` : "/categories";
+    const endpoint = buildCategoryEndpoint(params);
 
     const response = await apiClient<CategoryApiResponse>(endpoint, {
       method: "GET",
     });
 
     return normalizeCategories(response);
+  },
+
+  async getAll(params?: {
+    search?: string;
+    isActive?: boolean;
+  }): Promise<CategoryResponse[]> {
+    return this.getCategories(params);
   },
 };

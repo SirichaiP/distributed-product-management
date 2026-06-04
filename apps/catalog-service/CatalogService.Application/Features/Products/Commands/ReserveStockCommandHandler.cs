@@ -1,4 +1,7 @@
-﻿using CatalogService.Application.Interfaces;
+﻿
+
+
+using CatalogService.Application.Interfaces;
 using CatalogService.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -38,12 +41,13 @@ public sealed class ReserveStockCommandHandler
         {
             throw new InvalidOperationException("Insufficient available stock.");
         }
+        var expiresAt = DateTime.Now.AddMinutes(15);
 
         var reservation = new StockReservation(
             request.ProductId,
             request.OrderId,
             request.Quantity,
-            request.ExpiresAt);
+            expiresAt);
 
         _context.StockReservations.Add(reservation);
 

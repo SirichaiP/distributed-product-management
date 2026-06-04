@@ -19,6 +19,24 @@ public sealed class GetProductsQueryHandler
         GetProductsQuery request,
         CancellationToken cancellationToken)
     {
+        var now = DateTime.UtcNow;
+
+        var reservedStockQuery =
+            _context.StockReservations
+                .AsNoTracking()
+                .Where(x =>
+                    x.Status == "Reserved" &&
+                    (
+                        x.ExpiresAt == default ||
+                        x.ExpiresAt > now
+                    ))
+                .GroupBy(x => x.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    ReservedQuantity = g.Sum(x => x.Quantity)
+                });
+
         var query = _context.Products
             .AsNoTracking()
             .Include(x => x.Category)
@@ -47,21 +65,33 @@ public sealed class GetProductsQueryHandler
 
         return await query
             .OrderByDescending(x => x.CreatedAt)
+            .GroupJoin(
+                reservedStockQuery,
+                product => product.Id,
+                reservation => reservation.ProductId,
+                (product, reservations) => new
+                {
+                    Product = product,
+                    ReservedQuantity = reservations
+                        .Select(r => r.ReservedQuantity)
+                        .FirstOrDefault()
+                })
             .Select(x => new ProductDto(
-                x.Id,
-                x.CategoryId,
-                x.Category.Name,
-                x.Name,
-                x.Slug,
-                x.Description,
-                x.Price,
-                x.Currency,
-                x.StockQuantity,
-                x.Sku,
-                x.IsActive,
-                x.CreatedAt,
-                x.UpdatedAt,
-                x.Images
+                x.Product.Id,
+                x.Product.CategoryId,
+                x.Product.Category.Name,
+                x.Product.Name,
+                x.Product.Slug,
+                x.Product.Description,
+                x.Product.Price,
+                x.Product.Currency,
+                x.Product.StockQuantity,
+                Math.Max(x.Product.StockQuantity - x.ReservedQuantity, 0),
+                x.Product.Sku,
+                x.Product.IsActive,
+                x.Product.CreatedAt,
+                x.Product.UpdatedAt,
+                x.Product.Images
                     .OrderBy(i => i.SortOrder)
                     .Select(i => new ProductImageDto(
                         i.Id,

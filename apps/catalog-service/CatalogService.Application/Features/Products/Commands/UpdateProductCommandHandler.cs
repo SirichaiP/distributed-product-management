@@ -47,28 +47,42 @@ public sealed class UpdateProductCommandHandler
             request.IsActive);
 
         await _context.SaveChangesAsync(cancellationToken);
+        var reservedQuantity = await _context.StockReservations
+    .AsNoTracking()
+    .Where(x =>
+        x.ProductId == product.Id &&
+        x.Status == "Reserved" &&
+        (
+            x.ExpiresAt == default ||
+            x.ExpiresAt > DateTime.Now
+        ))
+    .SumAsync(x => (int?)x.Quantity, cancellationToken) ?? 0;
 
+        var availableQuantity = Math.Max(
+            product.StockQuantity - reservedQuantity,
+            0);
         return new ProductDto(
-            product.Id,
-            product.CategoryId,
-            category.Name,
-            product.Name,
-            product.Slug,
-            product.Description,
-            product.Price,
-            product.Currency,
-            product.StockQuantity,
-            product.Sku,
-            product.IsActive,
-            product.CreatedAt,
-            product.UpdatedAt,
-            product.Images
-                .OrderBy(x => x.SortOrder)
-                .Select(x => new ProductImageDto(
-                    x.Id,
-                    x.Url,
-                    x.SortOrder,
-                    x.IsPrimary))
-                .ToList());
+      product.Id,
+      product.CategoryId,
+      product.Category.Name,
+      product.Name,
+      product.Slug,
+      product.Description,
+      product.Price,
+      product.Currency,
+      product.StockQuantity,
+      availableQuantity,
+      product.Sku,
+      product.IsActive,
+      product.CreatedAt,
+      product.UpdatedAt,
+      product.Images
+          .OrderBy(i => i.SortOrder)
+          .Select(i => new ProductImageDto(
+              i.Id,
+              i.Url,
+              i.SortOrder,
+              i.IsPrimary))
+          .ToList());
     }
 }

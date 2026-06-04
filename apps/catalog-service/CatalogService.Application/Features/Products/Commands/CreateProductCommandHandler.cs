@@ -52,21 +52,28 @@ public sealed class CreateProductCommandHandler
             product.Price,
             product.Currency,
             cancellationToken);
-
         return new ProductDto(
             product.Id,
             product.CategoryId,
-            category.Name,
+            product.Category.Name,
             product.Name,
             product.Slug,
             product.Description,
             product.Price,
             product.Currency,
             product.StockQuantity,
+            product.StockQuantity,
             product.Sku,
             product.IsActive,
             product.CreatedAt,
             product.UpdatedAt,
-            []);
+            product.Images
+                .OrderBy(i => i.SortOrder)
+                .Select(i => new ProductImageDto(
+                    i.Id,
+                    i.Url,
+                    i.SortOrder,
+                    i.IsPrimary))
+                .ToList());
     }
 }

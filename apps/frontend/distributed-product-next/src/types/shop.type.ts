@@ -7,14 +7,22 @@ export interface ShopCategoryOption {
 
 export interface ShopProduct {
   id: string;
-  name: string;
-  description?: string | null;
-  categoryId?: string | null;
+  categoryId: string;
   categoryName: string;
+  name: string;
+  slug: string;
+  description?: string | null;
   price: number;
+  currency: string;
+
   stockQuantity: number;
-  imageUrl?: string | null;
-  isActive?: boolean;
+  availableQuantity: number;
+
+  sku: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+  images?: unknown[];
 }
 
 export interface CartItem {
@@ -31,23 +39,20 @@ export type CartMap = Record<string, CartItem>;
 
 export interface PlaceOrderItemRequest {
   productId: string;
-  productName: string;
-  unitPrice: number;
   quantity: number;
 }
 
 export interface PlaceOrderRequest {
   userId: string;
-  currency: string;
   items: PlaceOrderItemRequest[];
 }
 
 export interface PlaceOrderResponse {
   id: string;
   userId: string;
+  status: string;
+  totalAmount: number;
   currency: string;
-  status?: string;
-  totalAmount?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }

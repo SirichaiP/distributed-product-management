@@ -1,42 +1,57 @@
 export type OrderStatus =
-  | "Completed"
-  | "Processing"
-  | "Shipped"
-  | "Cancelled";
+  | "PENDING"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "CANCELLED";
 
-export interface MyOrderItem {
-  id: number;
-  name: string;
-  emoji: string;
-  qty: number;
-  price: number;
-}
-
-export interface MyOrder {
+export interface OrderItemResponse {
   id: string;
-  date: string;
+  orderId: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+}
+
+export interface OrderHistoryResponse {
+  id: string;
+  orderId: string;
+  fromStatus: OrderStatus | null;
+  toStatus: OrderStatus;
+  changedBy: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface OrderResponse {
+  id: string;
+  userId: string;
   status: OrderStatus;
-  items: MyOrderItem[];
-}
-
-export interface MyOrderWithTotal extends MyOrder {
-  total: number;
-}
-
-export interface OrderStatusMeta {
-  label: string;
-  className: string;
-}
-
-export interface OrderTimelineStep {
-  title: string;
-  time: string;
-  state: "done" | "active" | "pending";
-}
-
-export interface MyOrderStats {
-  totalOrders: number;
-  completedOrders: number;
-  processingOrders: number;
   totalAmount: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  items: OrderItemResponse[];
+  histories: OrderHistoryResponse[];
+}
+
+export interface PlaceOrderItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface PlaceOrderRequest {
+  userId: string;
+  items: PlaceOrderItem[];
+}
+
+export type PlaceOrderResponse = OrderResponse;
+
+export interface UpdateOrderStatusRequest {
+  status: OrderStatus;
+  changedBy: string;
+  note?: string;
 }

@@ -2,7 +2,7 @@
 
 // src/components/stock-management/StockManagementClient.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import AdjustStockModal from "./AdjustStockModal";
 import ReserveStockModal from "./ReserveStockModal";
@@ -10,13 +10,13 @@ import StockSummaryCards from "./StockSummaryCards";
 import StockTable from "./StockTable";
 import StockToolbar from "./StockToolbar";
 
-import { mockStockProducts } from "@/lib/mock/stock.mock";
 import { stockService } from "@/services/stock.service";
 import type { StockProduct } from "@/types/stock.type";
 
 export default function StockManagementClient() {
   const [products, setProducts] = useState<StockProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -28,42 +28,55 @@ export default function StockManagementClient() {
     null
   );
 
-  useEffect(() => {
-    let ignore = false;
+  const loadProducts = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
 
-    async function fetchProducts() {
-      try {
-        if (!ignore) {
-          setLoading(true);
-          setError(null);
-        }
-
-        const data = await stockService.getProducts();
-
-        if (!ignore) {
-          setProducts(data);
-        }
-      } catch {
-        if (!ignore) {
-          setProducts(mockStockProducts);
-          setError("ไม่สามารถโหลดข้อมูลจาก API ได้ ระบบจะแสดงข้อมูลตัวอย่างแทน");
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
+    try {
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
+
+      setError(null);
+
+      const data = await stockService.getProducts();
+      setProducts(data);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "ไม่สามารถโหลดข้อมูล Stock จาก API ได้";
+
+      setError(message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    fetchProducts();
-
-    return () => {
-      ignore = true;
-    };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    queueMicrotask(() => {
+      if (active) {
+        void loadProducts();
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [loadProducts]);
+
   const categories = useMemo(() => {
-    return Array.from(new Set(products.map((product) => product.category)));
+    return Array.from(
+      new Set(
+        products
+          .map((product) => product.category)
+          .filter((category): category is string => Boolean(category))
+      )
+    );
   }, [products]);
 
   const filteredProducts = useMemo(() => {
@@ -102,40 +115,14 @@ export default function StockManagementClient() {
     };
   }, [products]);
 
-  async function refreshProducts() {
-    try {
-      const data = await stockService.getProducts();
-      setProducts(data);
-      setError(null);
-    } catch {
-      setProducts((currentProducts) => currentProducts);
-      setError("อัปเดตข้อมูลจาก API ไม่สำเร็จ แต่ระบบยังแสดงข้อมูลล่าสุดไว้ให้");
-    }
-  }
-
-  function updateProductStock(productId: string, newStock: number) {
-    setProducts((currentProducts) =>
-      currentProducts.map((product) =>
-        product.id === productId
-          ? {
-              ...product,
-              stock: newStock,
-            }
-          : product
-      )
-    );
-  }
-
-  function handleAdjustSuccess(productId: string, newStock: number) {
-    updateProductStock(productId, newStock);
+  async function handleAdjustSuccess() {
     setAdjustProduct(null);
-    refreshProducts();
+    await loadProducts({ silent: true });
   }
 
-  function handleReserveSuccess(productId: string, newStock: number) {
-    updateProductStock(productId, newStock);
+  async function handleReserveSuccess() {
     setReserveProduct(null);
-    refreshProducts();
+    await loadProducts({ silent: true });
   }
 
   return (
@@ -150,6 +137,15 @@ export default function StockManagementClient() {
             Stock Management
           </p>
         </div>
+
+        <button
+          type="button"
+          className="stock-refresh-btn"
+          onClick={() => void loadProducts({ silent: true })}
+          disabled={loading || refreshing}
+        >
+          {refreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {error && <div className="stock-alert-warning">{error}</div>}
@@ -189,7 +185,7 @@ export default function StockManagementClient() {
           </span>
 
           <div className="stock-pagination-btns">
-            <button type="button" className="stock-page-btn">
+            <button type="button" className="stock-page-btn" disabled>
               ‹
             </button>
 
@@ -197,24 +193,24 @@ export default function StockManagementClient() {
               1
             </button>
 
-            <button type="button" className="stock-page-btn">
+            <button type="button" className="stock-page-btn" disabled>
               ›
             </button>
           </div>
         </div>
       </div>
 
-      <AdjustStockModal
-        product={adjustProduct}
-        onClose={() => setAdjustProduct(null)}
-        onSuccess={handleAdjustSuccess}
-      />
+     <AdjustStockModal
+  product={adjustProduct}
+  onClose={() => setAdjustProduct(null)}
+  onSuccess={handleAdjustSuccess}
+/>
 
-      <ReserveStockModal
-        product={reserveProduct}
-        onClose={() => setReserveProduct(null)}
-        onSuccess={handleReserveSuccess}
-      />
+<ReserveStockModal
+  product={reserveProduct}
+  onClose={() => setReserveProduct(null)}
+  onSuccess={handleReserveSuccess}
+/>
     </main>
   );
 }

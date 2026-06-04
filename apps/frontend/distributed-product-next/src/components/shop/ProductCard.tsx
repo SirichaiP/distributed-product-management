@@ -24,8 +24,11 @@ export default function ProductCard({
 }: ProductCardProps) {
   const cartItem = cart[product.id];
   const selectedQty = cartItem?.quantity ?? 0;
+const availableQty = Math.max(product.availableQuantity - selectedQty, 0);
+ // const availableQty = Math.max(product.stockQuantity - selectedQty, 0);
 
   const isOutOfStock = product.stockQuantity <= 0;
+  const isAvailableOutOfStock = availableQty <= 0;
   const isMaxSelected = selectedQty >= product.stockQuantity;
 
   return (
@@ -55,6 +58,18 @@ export default function ProductCard({
           {isOutOfStock
             ? "สินค้าหมด"
             : `มีสินค้า ${product.stockQuantity.toLocaleString("th-TH")} ชิ้น`}
+        </div>
+
+        <div
+          className={
+            availableQty <= 5
+              ? "shop-product-available warning"
+              : "shop-product-available"
+          }
+        >
+          {isAvailableOutOfStock
+            ? "สินค้าพร้อมขายหมด"
+            : `สินค้าพร้อมขาย ${availableQty.toLocaleString("th-TH")} ชิ้น`}
         </div>
       </div>
 
